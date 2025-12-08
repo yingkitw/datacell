@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Modules expose APIs for library use
+
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use rmcp::{transport::stdio, ServiceExt};
