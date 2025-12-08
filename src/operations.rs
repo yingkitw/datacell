@@ -279,6 +279,421 @@ impl DataOperations {
         
         output
     }
+    
+    // ============ PANDAS-INSPIRED OPERATIONS ============
+    
+    /// Select specific columns by index
+    pub fn select_columns(&self, data: &[Vec<String>], columns: &[usize]) -> Vec<Vec<String>> {
+        data.iter()
+            .map(|row| {
+                columns.iter()
+                    .map(|&idx| row.get(idx).cloned().unwrap_or_default())
+                    .collect()
+            })
+            .collect()
+    }
+    
+    /// Select columns by name (first row is header)
+    pub fn select_columns_by_name(&self, data: &[Vec<String>], names: &[&str]) -> Result<Vec<Vec<String>>> {
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let header = &data[0];
+        let indices: Vec<usize> = names.iter()
+            .map(|name| {
+                header.iter().position(|h| h == *name)
+                    .ok_or_else(|| anyhow::anyhow!("Column '{}' not found", name))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        
+        Ok(self.select_columns(data, &indices))
+    }
+    
+    /// Get first n rows (head)
+    pub fn head(&self, data: &[Vec<String>], n: usize) -> Vec<Vec<String>> {
+        data.iter().take(n).cloned().collect()
+    }
+    
+    /// Get last n rows (tail)
+    pub fn tail(&self, data: &[Vec<String>], n: usize) -> Vec<Vec<String>> {
+        let len = data.len();
+        if n >= len {
+            data.to_vec()
+        } else {
+            data[len - n..].to_vec()
+        }
+    }
+    
+    /// Sample random rows
+    pub fn sample(&self, data: &[Vec<String>], n: usize, seed: Option<u64>) -> Vec<Vec<String>> {
+        use std::collections::HashSet;
+        
+        if n >= data.len() {
+            return data.to_vec();
+        }
+        
+        // Simple LCG random number generator
+        let mut rng_state = seed.unwrap_or(42);
+        let mut next_rand = || {
+            rng_state = rng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            rng_state
+        };
+        
+        let mut indices = HashSet::new();
+        while indices.len() < n {
+            let idx = (next_rand() as usize) % data.len();
+            indices.insert(idx);
+        }
+        
+        let mut result: Vec<Vec<String>> = indices.iter()
+            .map(|&idx| data[idx].clone())
+            .collect();
+        result.sort_by_key(|_| next_rand()); // Shuffle
+        result
+    }
+    
+    /// Drop columns by index
+    pub fn drop_columns(&self, data: &[Vec<String>], columns: &[usize]) -> Vec<Vec<String>> {
+        let drop_set: std::collections::HashSet<usize> = columns.iter().copied().collect();
+        data.iter()
+            .map(|row| {
+                row.iter()
+                    .enumerate()
+                    .filter(|(idx, _)| !drop_set.contains(idx))
+                    .map(|(_, val)| val.clone())
+                    .collect()
+            })
+            .collect()
+    }
+    
+    /// Rename columns (first row is header)
+    pub fn rename_columns(&self, data: &mut Vec<Vec<String>>, renames: &[(&str, &str)]) -> Result<()> {
+        if data.is_empty() {
+            return Ok(());
+        }
+        
+        let header = &mut data[0];
+        for (old_name, new_name) in renames {
+            if let Some(pos) = header.iter().position(|h| h == *old_name) {
+                header[pos] = new_name.to_string();
+            }
+        }
+        Ok(())
+    }
+    
+    /// Fill missing/empty values
+    pub fn fillna(&self, data: &mut Vec<Vec<String>>, value: &str) {
+        for row in data.iter_mut() {
+            for cell in row.iter_mut() {
+                if cell.is_empty() {
+                    *cell = value.to_string();
+                }
+            }
+        }
+    }
+    
+    /// Drop rows with any empty values
+    pub fn dropna(&self, data: &[Vec<String>]) -> Vec<Vec<String>> {
+        data.iter()
+            .filter(|row| !row.iter().any(|cell| cell.is_empty()))
+            .cloned()
+            .collect()
+    }
+    
+    /// Concatenate multiple datasets vertically
+    pub fn concat(&self, datasets: &[Vec<Vec<String>>]) -> Vec<Vec<String>> {
+        let mut result = Vec::new();
+        for dataset in datasets {
+            result.extend(dataset.iter().cloned());
+        }
+        result
+    }
+    
+    /// Join two datasets on a column (inner join)
+    pub fn join(
+        &self,
+        left: &[Vec<String>],
+        right: &[Vec<String>],
+        left_col: usize,
+        right_col: usize,
+        how: JoinType,
+    ) -> Result<Vec<Vec<String>>> {
+        use std::collections::HashMap;
+        
+        if left.is_empty() || right.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Build index on right table
+        let mut right_index: HashMap<String, Vec<usize>> = HashMap::new();
+        for (idx, row) in right.iter().enumerate() {
+            if let Some(key) = row.get(right_col) {
+                right_index.entry(key.clone()).or_default().push(idx);
+            }
+        }
+        
+        let right_width = right.iter().map(|r| r.len()).max().unwrap_or(0);
+        let empty_right: Vec<String> = vec![String::new(); right_width];
+        
+        let mut result = Vec::new();
+        let mut matched_right: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        
+        for left_row in left {
+            let key = left_row.get(left_col).cloned().unwrap_or_default();
+            
+            if let Some(right_indices) = right_index.get(&key) {
+                for &right_idx in right_indices {
+                    matched_right.insert(right_idx);
+                    let mut new_row = left_row.clone();
+                    // Append right columns (excluding join column)
+                    for (idx, val) in right[right_idx].iter().enumerate() {
+                        if idx != right_col {
+                            new_row.push(val.clone());
+                        }
+                    }
+                    result.push(new_row);
+                }
+            } else if matches!(how, JoinType::Left | JoinType::Outer) {
+                let mut new_row = left_row.clone();
+                for (idx, val) in empty_right.iter().enumerate() {
+                    if idx != right_col {
+                        new_row.push(val.clone());
+                    }
+                }
+                result.push(new_row);
+            }
+        }
+        
+        // For outer join, add unmatched right rows
+        if matches!(how, JoinType::Right | JoinType::Outer) {
+            let left_width = left.iter().map(|r| r.len()).max().unwrap_or(0);
+            let empty_left: Vec<String> = vec![String::new(); left_width];
+            
+            for (idx, right_row) in right.iter().enumerate() {
+                if !matched_right.contains(&idx) {
+                    let mut new_row = empty_left.clone();
+                    if let Some(key) = right_row.get(right_col) {
+                        if left_col < new_row.len() {
+                            new_row[left_col] = key.clone();
+                        }
+                    }
+                    for (col_idx, val) in right_row.iter().enumerate() {
+                        if col_idx != right_col {
+                            new_row.push(val.clone());
+                        }
+                    }
+                    result.push(new_row);
+                }
+            }
+        }
+        
+        Ok(result)
+    }
+    
+    /// Group by column and aggregate
+    pub fn groupby(
+        &self,
+        data: &[Vec<String>],
+        group_col: usize,
+        aggregations: &[(usize, AggFunc)],
+    ) -> Result<Vec<Vec<String>>> {
+        use std::collections::HashMap;
+        
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Group rows by key
+        let mut groups: HashMap<String, Vec<&Vec<String>>> = HashMap::new();
+        for row in data.iter().skip(1) { // Skip header
+            let key = row.get(group_col).cloned().unwrap_or_default();
+            groups.entry(key).or_default().push(row);
+        }
+        
+        // Build result with header
+        let mut result = Vec::new();
+        
+        // Header row
+        let mut header = vec![data[0].get(group_col).cloned().unwrap_or_else(|| "group".to_string())];
+        for (col, agg) in aggregations {
+            let col_name = data[0].get(*col).cloned().unwrap_or_else(|| format!("col_{}", col));
+            header.push(format!("{}_{}", agg.name(), col_name));
+        }
+        result.push(header);
+        
+        // Aggregate each group
+        for (key, rows) in groups {
+            let mut row = vec![key];
+            for (col, agg) in aggregations {
+                let values: Vec<f64> = rows.iter()
+                    .filter_map(|r| r.get(*col))
+                    .filter_map(|v| v.parse::<f64>().ok())
+                    .collect();
+                let agg_value = agg.apply(&values);
+                row.push(format!("{:.2}", agg_value));
+            }
+            result.push(row);
+        }
+        
+        Ok(result)
+    }
+    
+    /// Calculate descriptive statistics for numeric columns
+    pub fn describe(&self, data: &[Vec<String>]) -> Result<Vec<Vec<String>>> {
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let header = &data[0];
+        let num_cols = header.len();
+        
+        // Collect numeric values per column
+        let mut columns: Vec<Vec<f64>> = vec![Vec::new(); num_cols];
+        for row in data.iter().skip(1) {
+            for (idx, val) in row.iter().enumerate() {
+                if let Ok(num) = val.parse::<f64>() {
+                    columns[idx].push(num);
+                }
+            }
+        }
+        
+        // Build result
+        let mut result = Vec::new();
+        
+        // Header
+        let mut stat_header = vec!["stat".to_string()];
+        stat_header.extend(header.iter().cloned());
+        result.push(stat_header);
+        
+        // Stats rows
+        let stats = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"];
+        for stat in stats {
+            let mut row = vec![stat.to_string()];
+            for col_values in &columns {
+                let value = if col_values.is_empty() {
+                    "NaN".to_string()
+                } else {
+                    match stat {
+                        "count" => col_values.len().to_string(),
+                        "mean" => format!("{:.2}", col_values.iter().sum::<f64>() / col_values.len() as f64),
+                        "std" => {
+                            let mean = col_values.iter().sum::<f64>() / col_values.len() as f64;
+                            let variance = col_values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / col_values.len() as f64;
+                            format!("{:.2}", variance.sqrt())
+                        }
+                        "min" => format!("{:.2}", col_values.iter().cloned().fold(f64::INFINITY, f64::min)),
+                        "max" => format!("{:.2}", col_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max)),
+                        "25%" | "50%" | "75%" => {
+                            let mut sorted = col_values.clone();
+                            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                            let p = match stat {
+                                "25%" => 0.25,
+                                "50%" => 0.50,
+                                "75%" => 0.75,
+                                _ => 0.5,
+                            };
+                            let idx = ((sorted.len() - 1) as f64 * p) as usize;
+                            format!("{:.2}", sorted[idx])
+                        }
+                        _ => "".to_string(),
+                    }
+                };
+                row.push(value);
+            }
+            result.push(row);
+        }
+        
+        Ok(result)
+    }
+    
+    /// Count unique values in a column
+    pub fn value_counts(&self, data: &[Vec<String>], column: usize) -> Vec<Vec<String>> {
+        use std::collections::HashMap;
+        
+        let mut counts: HashMap<String, usize> = HashMap::new();
+        for row in data.iter().skip(1) { // Skip header
+            if let Some(val) = row.get(column) {
+                *counts.entry(val.clone()).or_insert(0) += 1;
+            }
+        }
+        
+        let mut result: Vec<(String, usize)> = counts.into_iter().collect();
+        result.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
+        
+        let mut output = vec![vec!["value".to_string(), "count".to_string()]];
+        for (val, count) in result {
+            output.push(vec![val, count.to_string()]);
+        }
+        output
+    }
+}
+
+/// Join type for merge operations
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum JoinType {
+    Inner,
+    Left,
+    Right,
+    Outer,
+}
+
+impl JoinType {
+    pub fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "inner" => Ok(JoinType::Inner),
+            "left" => Ok(JoinType::Left),
+            "right" => Ok(JoinType::Right),
+            "outer" | "full" => Ok(JoinType::Outer),
+            _ => anyhow::bail!("Unknown join type: {}. Use: inner, left, right, outer", s),
+        }
+    }
+}
+
+/// Aggregation functions for groupby
+#[derive(Debug, Clone, Copy)]
+pub enum AggFunc {
+    Sum,
+    Count,
+    Mean,
+    Min,
+    Max,
+}
+
+impl AggFunc {
+    pub fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "sum" => Ok(AggFunc::Sum),
+            "count" => Ok(AggFunc::Count),
+            "mean" | "avg" | "average" => Ok(AggFunc::Mean),
+            "min" => Ok(AggFunc::Min),
+            "max" => Ok(AggFunc::Max),
+            _ => anyhow::bail!("Unknown aggregation: {}. Use: sum, count, mean, min, max", s),
+        }
+    }
+    
+    pub fn name(&self) -> &'static str {
+        match self {
+            AggFunc::Sum => "sum",
+            AggFunc::Count => "count",
+            AggFunc::Mean => "mean",
+            AggFunc::Min => "min",
+            AggFunc::Max => "max",
+        }
+    }
+    
+    pub fn apply(&self, values: &[f64]) -> f64 {
+        if values.is_empty() {
+            return 0.0;
+        }
+        match self {
+            AggFunc::Sum => values.iter().sum(),
+            AggFunc::Count => values.len() as f64,
+            AggFunc::Mean => values.iter().sum::<f64>() / values.len() as f64,
+            AggFunc::Min => values.iter().cloned().fold(f64::INFINITY, f64::min),
+            AggFunc::Max => values.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        }
+    }
 }
 
 #[cfg(test)]

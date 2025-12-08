@@ -83,6 +83,17 @@ datacell read --input report.xlsx --format json > report.json
   - Remove duplicate rows
   - Transpose data (rows to columns)
   - Merge cells (Excel output)
+- **Pandas-style operations**
+  - Head/tail (first/last n rows)
+  - Sample random rows
+  - Select/drop columns
+  - Describe (summary statistics)
+  - Value counts
+  - Group by with aggregations (sum, count, mean, min, max)
+  - Join/merge files (inner, left, right, outer)
+  - Concatenate files
+  - Fill/drop missing values
+  - Rename columns
 - **Cell range operations** - read/write specific ranges like A1:C10
 - **Multiple output formats** - CSV, JSON, Markdown
 - **Multi-sheet support** - list sheets, read all sheets at once
@@ -228,6 +239,47 @@ datacell read-all --input workbook.xlsx --format json
 
 # Write data to specific cell range
 datacell write-range --input data.csv --output result.xlsx --start B2
+```
+
+### Pandas-style operations
+
+```bash
+# First/last n rows
+datacell head --input data.csv -n 5
+datacell tail --input data.csv -n 5
+
+# Sample random rows
+datacell sample --input data.csv -n 10 --seed 42
+
+# Select specific columns
+datacell select --input data.csv --output subset.csv --columns "name,age,salary"
+
+# Describe statistics
+datacell describe --input data.csv --format markdown
+
+# Value counts
+datacell value-counts --input data.csv --column category
+
+# Group by and aggregate
+datacell groupby --input sales.csv --output summary.csv --by category --agg "sum:amount,count:id,mean:price"
+
+# Join two files
+datacell join --left orders.csv --right customers.csv --output merged.csv --on customer_id --how left
+
+# Concatenate files
+datacell concat --inputs "jan.csv,feb.csv,mar.csv" --output q1.csv
+
+# Fill empty values
+datacell fillna --input data.csv --output filled.csv --value "N/A"
+
+# Drop rows with empty values
+datacell dropna --input data.csv --output clean.csv
+
+# Drop columns
+datacell drop --input data.csv --output slim.csv --columns "temp,debug"
+
+# Rename columns
+datacell rename --input data.csv --output renamed.csv --from "old_name" --to "new_name"
 ```
 
 ## Formula Examples

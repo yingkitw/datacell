@@ -11,6 +11,6 @@ pub use csv_handler::{CsvHandler, CellRange, StreamingCsvReader, StreamingCsvWri
 pub use converter::Converter;
 pub use formula::FormulaEvaluator;
 pub use mcp::DatacellMcpServer;
-pub use operations::{DataOperations, SortOrder, ProgressCallback, StderrProgress, NoProgress};
+pub use operations::{DataOperations, SortOrder, ProgressCallback, StderrProgress, NoProgress, JoinType, AggFunc};
 pub use columnar::{ParquetHandler, AvroHandler};
 

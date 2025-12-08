@@ -15,7 +15,7 @@ use csv_handler::{CsvHandler, CellRange};
 use converter::Converter;
 use formula::FormulaEvaluator;
 use mcp::DatacellMcpServer;
-use operations::{DataOperations, SortOrder};
+use operations::{DataOperations, SortOrder, JoinType, AggFunc};
 use columnar::{ParquetHandler, AvroHandler};
 
 #[derive(Parser)]
@@ -197,6 +197,168 @@ enum Commands {
         /// Starting cell (e.g., "B2")
         #[arg(short, long)]
         start: String,
+    },
+    /// Select specific columns
+    Select {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Column names (comma-separated)
+        #[arg(short, long)]
+        columns: String,
+    },
+    /// Get first n rows
+    Head {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Number of rows
+        #[arg(short, long, default_value = "10")]
+        n: usize,
+        /// Output format
+        #[arg(short = 'f', long, default_value = "csv")]
+        format: OutputFormat,
+    },
+    /// Get last n rows
+    Tail {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Number of rows
+        #[arg(short, long, default_value = "10")]
+        n: usize,
+        /// Output format
+        #[arg(short = 'f', long, default_value = "csv")]
+        format: OutputFormat,
+    },
+    /// Sample random rows
+    Sample {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Number of rows to sample
+        #[arg(short, long)]
+        n: usize,
+        /// Random seed
+        #[arg(long)]
+        seed: Option<u64>,
+        /// Output format
+        #[arg(short = 'f', long, default_value = "csv")]
+        format: OutputFormat,
+    },
+    /// Describe statistics for numeric columns
+    Describe {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output format
+        #[arg(short = 'f', long, default_value = "csv")]
+        format: OutputFormat,
+    },
+    /// Count unique values in a column
+    ValueCounts {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Column name or index
+        #[arg(short, long)]
+        column: String,
+        /// Output format
+        #[arg(short = 'f', long, default_value = "csv")]
+        format: OutputFormat,
+    },
+    /// Group by column and aggregate
+    Groupby {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Column to group by
+        #[arg(short, long)]
+        by: String,
+        /// Aggregations (format: "sum:col1,count:col2,mean:col3")
+        #[arg(short, long)]
+        agg: String,
+    },
+    /// Join two files
+    Join {
+        /// Left file path
+        #[arg(short, long)]
+        left: String,
+        /// Right file path
+        #[arg(short, long)]
+        right: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Column to join on
+        #[arg(long)]
+        on: String,
+        /// Join type (inner, left, right, outer)
+        #[arg(long, default_value = "inner")]
+        how: String,
+    },
+    /// Concatenate multiple files
+    Concat {
+        /// Input files (comma-separated)
+        #[arg(short, long)]
+        inputs: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+    },
+    /// Fill empty values
+    Fillna {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Value to fill
+        #[arg(short, long)]
+        value: String,
+    },
+    /// Drop rows with empty values
+    Dropna {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+    },
+    /// Drop columns
+    Drop {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Column names to drop (comma-separated)
+        #[arg(short, long)]
+        columns: String,
+    },
+    /// Rename columns
+    Rename {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: String,
+        /// Old column name
+        #[arg(long)]
+        from: String,
+        /// New column name
+        #[arg(long)]
+        to: String,
     },
 }
 
@@ -400,6 +562,129 @@ async fn main() -> Result<()> {
             }
             println!("Wrote {} rows starting at {} to {}", data.len(), start, output);
         }
+        Commands::Select { input, output, columns } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let col_names: Vec<&str> = columns.split(',').map(|s| s.trim()).collect();
+            let result = ops.select_columns_by_name(&data, &col_names)?;
+            write_csv_data(&output, &result)?;
+            println!("Selected {} columns, saved to {}", col_names.len(), output);
+        }
+        Commands::Head { input, n, format } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let result = ops.head(&data, n + 1); // +1 for header
+            println!("{}", format_output(&result, &format, &ops));
+        }
+        Commands::Tail { input, n, format } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            // Keep header + last n rows
+            let mut result = vec![data[0].clone()];
+            result.extend(ops.tail(&data[1..].to_vec(), n));
+            println!("{}", format_output(&result, &format, &ops));
+        }
+        Commands::Sample { input, n, seed, format } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            // Keep header + sample from data rows
+            let mut result = vec![data[0].clone()];
+            result.extend(ops.sample(&data[1..].to_vec(), n, seed));
+            println!("{}", format_output(&result, &format, &ops));
+        }
+        Commands::Describe { input, format } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let result = ops.describe(&data)?;
+            println!("{}", format_output(&result, &format, &ops));
+        }
+        Commands::ValueCounts { input, column, format } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let col_idx = find_column_index(&data, &column)?;
+            let result = ops.value_counts(&data, col_idx);
+            println!("{}", format_output(&result, &format, &ops));
+        }
+        Commands::Groupby { input, output, by, agg } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let group_col = find_column_index(&data, &by)?;
+            
+            // Parse aggregations: "sum:col1,count:col2"
+            let aggregations: Vec<(usize, AggFunc)> = agg.split(',')
+                .map(|s| {
+                    let parts: Vec<&str> = s.trim().split(':').collect();
+                    if parts.len() != 2 {
+                        anyhow::bail!("Invalid aggregation format: {}. Use 'func:column'", s);
+                    }
+                    let func = AggFunc::from_str(parts[0])?;
+                    let col_idx = find_column_index(&data, parts[1])?;
+                    Ok((col_idx, func))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            
+            let result = ops.groupby(&data, group_col, &aggregations)?;
+            write_csv_data(&output, &result)?;
+            println!("Grouped by '{}' with {} aggregations, saved to {}", by, aggregations.len(), output);
+        }
+        Commands::Join { left, right, output, on, how } => {
+            let left_data = read_any_file(&left)?;
+            let right_data = read_any_file(&right)?;
+            let ops = DataOperations::new();
+            
+            let left_col = find_column_index(&left_data, &on)?;
+            let right_col = find_column_index(&right_data, &on)?;
+            let join_type = JoinType::from_str(&how)?;
+            
+            let result = ops.join(&left_data, &right_data, left_col, right_col, join_type)?;
+            write_csv_data(&output, &result)?;
+            println!("Joined {} rows, saved to {}", result.len(), output);
+        }
+        Commands::Concat { inputs, output } => {
+            let ops = DataOperations::new();
+            let files: Vec<&str> = inputs.split(',').map(|s| s.trim()).collect();
+            
+            let datasets: Vec<Vec<Vec<String>>> = files.iter()
+                .map(|f| read_any_file(f))
+                .collect::<Result<Vec<_>>>()?;
+            
+            let result = ops.concat(&datasets.iter().map(|d| d.clone()).collect::<Vec<_>>());
+            write_csv_data(&output, &result)?;
+            println!("Concatenated {} files ({} rows), saved to {}", files.len(), result.len(), output);
+        }
+        Commands::Fillna { input, output, value } => {
+            let mut data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            ops.fillna(&mut data, &value);
+            write_csv_data(&output, &data)?;
+            println!("Filled empty values with '{}', saved to {}", value, output);
+        }
+        Commands::Dropna { input, output } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let result = ops.dropna(&data);
+            let dropped = data.len() - result.len();
+            write_csv_data(&output, &result)?;
+            println!("Dropped {} rows with empty values, saved to {}", dropped, output);
+        }
+        Commands::Drop { input, output, columns } => {
+            let data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            let col_names: Vec<&str> = columns.split(',').map(|s| s.trim()).collect();
+            let col_indices: Vec<usize> = col_names.iter()
+                .map(|name| find_column_index(&data, name))
+                .collect::<Result<Vec<_>>>()?;
+            let result = ops.drop_columns(&data, &col_indices);
+            write_csv_data(&output, &result)?;
+            println!("Dropped {} columns, saved to {}", col_names.len(), output);
+        }
+        Commands::Rename { input, output, from, to } => {
+            let mut data = read_any_file(&input)?;
+            let ops = DataOperations::new();
+            ops.rename_columns(&mut data, &[(&from, &to)])?;
+            write_csv_data(&output, &data)?;
+            println!("Renamed '{}' to '{}', saved to {}", from, to, output);
+        }
     }
 
     Ok(())
@@ -442,6 +727,53 @@ fn format_output(data: &[Vec<String>], format: &OutputFormat, ops: &DataOperatio
         OutputFormat::Json => serde_json::to_string_pretty(data).unwrap_or_default(),
         OutputFormat::Markdown => ops.to_markdown(data),
     }
+}
+
+/// Read any supported file format into Vec<Vec<String>>
+fn read_any_file(path: &str) -> Result<Vec<Vec<String>>> {
+    if path.ends_with(".csv") {
+        read_csv_data(path)
+    } else if path.ends_with(".xlsx") || path.ends_with(".xls") {
+        let handler = ExcelHandler::new();
+        let content = handler.read_with_sheet(path, None)?;
+        Ok(content.lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.split(',').map(|s| s.to_string()).collect())
+            .collect())
+    } else if path.ends_with(".parquet") {
+        let handler = ParquetHandler::new();
+        handler.read_with_headers(path)
+    } else if path.ends_with(".avro") {
+        let handler = AvroHandler::new();
+        handler.read_with_headers(path)
+    } else if path.ends_with(".ods") {
+        let handler = ExcelHandler::new();
+        handler.read_ods_data(path, None)
+    } else {
+        anyhow::bail!("Unsupported file format: {}", path)
+    }
+}
+
+/// Find column index by name or number
+fn find_column_index(data: &[Vec<String>], column: &str) -> Result<usize> {
+    // Try as number first
+    if let Ok(idx) = column.parse::<usize>() {
+        return Ok(idx);
+    }
+    
+    // Try as column letter (A, B, C, ...)
+    if column.chars().all(|c| c.is_ascii_alphabetic()) && column.len() <= 2 {
+        return parse_column_ref(column);
+    }
+    
+    // Find by name in header
+    if let Some(header) = data.first() {
+        if let Some(pos) = header.iter().position(|h| h == column) {
+            return Ok(pos);
+        }
+    }
+    
+    anyhow::bail!("Column '{}' not found", column)
 }
 
 /// Parse column reference (e.g., "A" -> 0, "B" -> 1, "0" -> 0)
