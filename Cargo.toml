@@ -1,0 +1,31 @@
+[package]
+name = "datacell"
+version = "0.1.0"
+edition = "2024"
+description = "A CLI tool for reading, writing, converting XLS and CSV files with formula support"
+
+[[bin]]
+name = "datacell"
+path = "src/main.rs"
+
+[lib]
+name = "datacell"
+path = "src/lib.rs"
+
+[dependencies]
+rmcp = { version = "0.10", features = ["server", "transport-io", "macros"] }
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4.5", features = ["derive"] }
+calamine = "0.26"
+rust_xlsxwriter = "0.80"
+csv = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+regex = "1.10"
+
+[dev-dependencies]
+insta = "1.40"
+
