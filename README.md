@@ -1,16 +1,78 @@
 # datacell
 
-A Rust CLI tool for reading, writing, converting XLS and CSV files with formula support.
+A fast, unified CLI tool for spreadsheet and columnar data manipulation.
+
+## The Problem
+
+Working with tabular data often requires juggling multiple tools:
+
+- **Excel/LibreOffice** - GUI-only, slow for batch processing, no scripting
+- **pandas/Python** - Requires Python environment, slow startup, memory-heavy
+- **csvkit** - CSV-only, no Excel/Parquet/Avro support
+- **xsv** - Fast but CSV-only, no formulas
+- **Apache Spark** - Overkill for simple transformations, complex setup
+
+Common pain points:
+- Converting between formats requires different tools
+- Applying Excel-like formulas to CSV files is awkward
+- Batch processing spreadsheets in CI/CD pipelines is difficult
+- No single tool handles CSV, Excel, Parquet, and Avro uniformly
+
+## The Solution
+
+**datacell** is a single, fast CLI tool that:
+
+- Reads/writes **all major formats**: CSV, XLS, XLSX, ODS, Parquet, Avro
+- Applies **Excel-like formulas** to any format (SUM, VLOOKUP, IF, etc.)
+- Performs **data operations** without code (sort, filter, dedupe, transpose)
+- Converts **between any formats** with one command
+- Outputs to **JSON/Markdown** for easy integration
+- Runs as an **MCP server** for AI assistant integration
+
+## Why datacell?
+
+| Feature | datacell | pandas | csvkit | xsv | Excel |
+|---------|----------|--------|--------|-----|-------|
+| Single binary | ✅ | ❌ | ❌ | ✅ | ❌ |
+| CSV support | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Excel support | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Parquet/Avro | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Formulas | ✅ | ❌ | ❌ | ❌ | ✅ |
+| CLI-native | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Fast startup | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Scriptable | ✅ | ✅ | ✅ | ✅ | ❌ |
+| No dependencies | ✅ | ❌ | ❌ | ✅ | ❌ |
+
+## Quick Start
+
+```bash
+# Install
+cargo install --path .
+
+# Convert CSV to Parquet
+datacell convert --input data.csv --output data.parquet
+
+# Apply formula
+datacell formula --input sales.csv --output result.csv --formula "SUM(C2:C100)" --cell "D1"
+
+# Filter and sort
+datacell filter --input data.csv --output filtered.csv --column status --op "=" --value "active"
+datacell sort --input filtered.csv --output sorted.csv --column date --descending
+
+# Output as JSON for API consumption
+datacell read --input report.xlsx --format json > report.json
+```
 
 ## Features
 
-- **Read** XLS, XLSX, and CSV files
-- **Write** data to XLS, XLSX, and CSV files
-- **Convert** between CSV and Excel formats
+- **Read** XLS, XLSX, ODS, CSV, Parquet, and Avro files
+- **Write** data to XLS, XLSX, CSV, Parquet, and Avro files
+- **Convert** between any formats (CSV, Excel, ODS, Parquet, Avro)
 - **Apply formulas** to cells in both CSV and Excel files
   - Supports basic arithmetic operations (+, -, *, /)
   - Supports SUM(), AVERAGE(), MIN(), MAX(), COUNT() functions
   - Supports ROUND(), ABS(), LEN() functions
+  - Supports VLOOKUP(), SUMIF(), COUNTIF() functions
   - Supports IF() for conditional logic
   - Supports CONCAT() for string concatenation
   - Supports cell references (e.g., A1, B2)
@@ -20,8 +82,12 @@ A Rust CLI tool for reading, writing, converting XLS and CSV files with formula 
   - Find and replace values
   - Remove duplicate rows
   - Transpose data (rows to columns)
-- **Cell range reading** - read specific ranges like A1:C10
+  - Merge cells (Excel output)
+- **Cell range operations** - read/write specific ranges like A1:C10
 - **Multiple output formats** - CSV, JSON, Markdown
+- **Multi-sheet support** - list sheets, read all sheets at once
+- **Streaming API** - process large files efficiently
+- **Progress callbacks** - track long-running operations
 - **MCP server** for integration with AI assistants
 
 ## Installation
@@ -57,6 +123,12 @@ datacell read --input data.xlsx --range "B2:D5" --format json
 
 # Read as Markdown table
 datacell read --input data.csv --format markdown
+
+# Read Parquet file
+datacell read --input data.parquet
+
+# Read Avro file
+datacell read --input data.avro
 ```
 
 ### Write a file
@@ -68,11 +140,19 @@ datacell write --output output.csv --csv input.csv
 # Write Excel from CSV
 datacell write --output output.xlsx --csv input.csv
 
+# Write Parquet from CSV
+datacell write --output output.parquet --csv input.csv
+
+# Write Avro from CSV
+datacell write --output output.avro --csv input.csv
+
 # Write Excel with specific sheet name
 datacell write --output output.xlsx --csv input.csv --sheet "Data"
 ```
 
 ### Convert between formats
+
+Supports conversion between: CSV, XLSX, XLS, ODS, Parquet, Avro
 
 ```bash
 # CSV to Excel
@@ -83,6 +163,21 @@ datacell convert --input data.xlsx --output data.csv
 
 # Excel to CSV (specific sheet)
 datacell convert --input data.xlsx --output data.csv --sheet "Sheet2"
+
+# CSV to Parquet
+datacell convert --input data.csv --output data.parquet
+
+# Parquet to CSV
+datacell convert --input data.parquet --output data.csv
+
+# Excel to Avro
+datacell convert --input data.xlsx --output data.avro
+
+# Avro to Parquet
+datacell convert --input data.avro --output data.parquet
+
+# ODS to CSV
+datacell convert --input data.ods --output data.csv
 ```
 
 ### Apply formulas
@@ -121,6 +216,18 @@ datacell dedupe --input data.csv --output unique.csv
 
 # Transpose (rows to columns)
 datacell transpose --input data.csv --output transposed.csv
+
+# Append data from one file to another
+datacell append --source new_data.csv --target existing.csv
+
+# List sheets in Excel/ODS file
+datacell sheets --input workbook.xlsx
+
+# Read all sheets at once (as JSON)
+datacell read-all --input workbook.xlsx --format json
+
+# Write data to specific cell range
+datacell write-range --input data.csv --output result.xlsx --start B2
 ```
 
 ## Formula Examples
@@ -133,6 +240,9 @@ datacell transpose --input data.csv --output transposed.csv
 - `ROUND(A1, 2)` - Round to 2 decimal places
 - `ABS(A1)` - Absolute value
 - `LEN(A1)` - Length of text in cell
+- `VLOOKUP(2, A1:C10, 3)` - Lookup value in table
+- `SUMIF(A1:A10, ">5", B1:B10)` - Sum cells matching criteria
+- `COUNTIF(A1:A10, ">5")` - Count cells matching criteria
 - `IF(A1>10, "High", "Low")` - Conditional logic
 - `CONCAT(A1, " ", B1)` - String concatenation
 - `A1+B1` - Add values in A1 and B1
@@ -141,29 +251,77 @@ datacell transpose --input data.csv --output transposed.csv
 - `A1/B1` - Divide A1 by B1
 - `A1` - Reference a single cell
 
+## Use Cases
+
+### Data Pipeline Automation
+```bash
+# Daily ETL: Excel → Parquet for analytics
+datacell convert --input daily_report.xlsx --output data/daily_$(date +%Y%m%d).parquet
+```
+
+### Report Generation
+```bash
+# Calculate totals and output as Markdown for documentation
+datacell formula --input sales.csv --output report.csv --formula "SUM(D2:D100)" --cell "E1"
+datacell read --input report.csv --format markdown > REPORT.md
+```
+
+### Data Cleaning
+```bash
+# Remove duplicates, filter invalid rows, sort
+datacell dedupe --input raw.csv --output clean.csv
+datacell filter --input clean.csv --output valid.csv --column status --op "!=" --value "invalid"
+datacell sort --input valid.csv --output final.csv --column date
+```
+
+### Format Migration
+```bash
+# Migrate legacy Excel files to modern Parquet
+for f in *.xlsx; do
+  datacell convert --input "$f" --output "${f%.xlsx}.parquet"
+done
+```
+
+### AI/LLM Integration
+```bash
+# Start MCP server for AI assistant integration
+datacell serve
+```
+
+## Example Data
+
+See the `examples/` folder for sample data files and usage examples.
+
 ## Architecture
 
 ```
 datacell/
 ├── src/
 │   ├── main.rs          # CLI entry point
-│   ├── excel.rs         # Excel file handling
+│   ├── excel.rs         # Excel/ODS file handling
 │   ├── csv_handler.rs   # CSV file handling
+│   ├── columnar.rs      # Parquet/Avro handling
 │   ├── converter.rs     # Format conversion
-│   └── formula.rs       # Formula evaluation
+│   ├── formula.rs       # Formula evaluation
+│   ├── operations.rs    # Data operations (sort, filter, etc.)
+│   └── mcp.rs           # MCP server for AI integration
+├── examples/            # Sample data files
 └── Cargo.toml
 ```
 
 ## Dependencies
 
-- `clap` - CLI argument parsing
-- `calamine` - Excel file reading (.xls, .xlsx)
-- `rust_xlsxwriter` - Excel file writing (.xlsx)
-- `csv` - CSV file handling
-- `anyhow` - Error handling
-- `regex` - Formula parsing
+| Crate | Purpose |
+|-------|---------|
+| `clap` | CLI argument parsing |
+| `calamine` | Excel/ODS reading |
+| `rust_xlsxwriter` | Excel writing |
+| `csv` | CSV handling |
+| `parquet` + `arrow` | Parquet support |
+| `apache-avro` | Avro support |
+| `rmcp` | MCP server |
+| `serde_json` | JSON output |
 
 ## License
 
 MIT
-

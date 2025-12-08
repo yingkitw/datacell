@@ -8,6 +8,7 @@ mod converter;
 mod formula;
 mod mcp;
 mod operations;
+mod columnar;
 
 use excel::ExcelHandler;
 use csv_handler::{CsvHandler, CellRange};
@@ -15,6 +16,7 @@ use converter::Converter;
 use formula::FormulaEvaluator;
 use mcp::DatacellMcpServer;
 use operations::{DataOperations, SortOrder};
+use columnar::{ParquetHandler, AvroHandler};
 
 #[derive(Parser)]
 #[command(name = "datacell")]
@@ -160,6 +162,42 @@ enum Commands {
         #[arg(short, long)]
         output: String,
     },
+    /// Append data from one file to another
+    Append {
+        /// Source file to read data from
+        #[arg(short, long)]
+        source: String,
+        /// Target file to append data to
+        #[arg(short, long)]
+        target: String,
+    },
+    /// List sheets in an Excel/ODS file
+    Sheets {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+    },
+    /// Read all sheets from Excel file
+    ReadAll {
+        /// Input file path
+        #[arg(short, long)]
+        input: String,
+        /// Output format (csv or json)
+        #[arg(short = 'f', long, default_value = "json")]
+        format: OutputFormat,
+    },
+    /// Write data to a specific cell range
+    WriteRange {
+        /// Input CSV file
+        #[arg(short, long)]
+        input: String,
+        /// Output file
+        #[arg(short, long)]
+        output: String,
+        /// Starting cell (e.g., "B2")
+        #[arg(short, long)]
+        start: String,
+    },
 }
 
 #[tokio::main]
@@ -192,8 +230,20 @@ async fn main() -> Result<()> {
                         .collect()
                 };
                 format_output(&data, &format, &ops)
+            } else if input.ends_with(".ods") {
+                let handler = ExcelHandler::new();
+                let data = handler.read_ods_data(&input, sheet.as_deref())?;
+                format_output(&data, &format, &ops)
+            } else if input.ends_with(".parquet") {
+                let handler = ParquetHandler::new();
+                let data = handler.read_with_headers(&input)?;
+                format_output(&data, &format, &ops)
+            } else if input.ends_with(".avro") {
+                let handler = AvroHandler::new();
+                let data = handler.read_with_headers(&input)?;
+                format_output(&data, &format, &ops)
             } else {
-                anyhow::bail!("Unsupported file format. Supported: .csv, .xls, .xlsx");
+                anyhow::bail!("Unsupported file format. Supported: .csv, .xls, .xlsx, .ods, .parquet, .avro");
             };
             println!("{}", output);
         }
@@ -207,8 +257,18 @@ async fn main() -> Result<()> {
                     let handler = ExcelHandler::new();
                     handler.write_from_csv(&csv_path, &output, sheet.as_deref())?;
                     println!("Written Excel to {}", output);
+                } else if output.ends_with(".parquet") {
+                    let data = read_csv_data(&csv_path)?;
+                    let handler = ParquetHandler::new();
+                    handler.write(&output, &data, None)?;
+                    println!("Written Parquet to {}", output);
+                } else if output.ends_with(".avro") {
+                    let data = read_csv_data(&csv_path)?;
+                    let handler = AvroHandler::new();
+                    handler.write(&output, &data, None)?;
+                    println!("Written Avro to {}", output);
                 } else {
-                    anyhow::bail!("Unsupported output format. Supported: .csv, .xls, .xlsx");
+                    anyhow::bail!("Unsupported output format. Supported: .csv, .xls, .xlsx, .parquet, .avro");
                 }
             } else {
                 anyhow::bail!("Please provide --csv input file");
@@ -286,6 +346,59 @@ async fn main() -> Result<()> {
                 data.len(), data.first().map(|r| r.len()).unwrap_or(0),
                 transposed.len(), transposed.first().map(|r| r.len()).unwrap_or(0),
                 output);
+        }
+        Commands::Append { source, target } => {
+            let data = read_csv_data(&source)?;
+            let handler = CsvHandler::new();
+            handler.append_records(&target, &data)?;
+            println!("Appended {} rows from {} to {}", data.len(), source, target);
+        }
+        Commands::Sheets { input } => {
+            let handler = ExcelHandler::new();
+            let sheets = if input.ends_with(".ods") {
+                handler.list_ods_sheets(&input)?
+            } else {
+                handler.list_sheets(&input)?
+            };
+            println!("Sheets in {}:", input);
+            for (i, sheet) in sheets.iter().enumerate() {
+                println!("  {}. {}", i + 1, sheet);
+            }
+        }
+        Commands::ReadAll { input, format } => {
+            let handler = ExcelHandler::new();
+            let all_sheets = handler.read_all_sheets(&input)?;
+            let ops = DataOperations::new();
+            
+            match format {
+                OutputFormat::Json => {
+                    let json = serde_json::to_string_pretty(&all_sheets)?;
+                    println!("{}", json);
+                }
+                OutputFormat::Csv | OutputFormat::Markdown => {
+                    for (sheet_name, data) in &all_sheets {
+                        println!("=== {} ===", sheet_name);
+                        let output = format_output(data, &format, &ops);
+                        println!("{}", output);
+                        println!();
+                    }
+                }
+            }
+        }
+        Commands::WriteRange { input, output, start } => {
+            let data = read_csv_data(&input)?;
+            let range = CellRange::parse(&start)?;
+            
+            if output.ends_with(".csv") {
+                let handler = CsvHandler::new();
+                handler.write_range(&output, &data, range.start_row, range.start_col)?;
+            } else if output.ends_with(".xlsx") {
+                let handler = ExcelHandler::new();
+                handler.write_range(&output, &data, range.start_row as u32, range.start_col as u16, None)?;
+            } else {
+                anyhow::bail!("Unsupported output format");
+            }
+            println!("Wrote {} rows starting at {} to {}", data.len(), start, output);
         }
     }
 

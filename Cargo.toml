@@ -25,6 +25,9 @@ schemars = "1.0"
 anyhow = "1.0"
 thiserror = "1.0"
 regex = "1.10"
+parquet = { version = "54", features = ["arrow"] }
+arrow = "54"
+apache-avro = "0.17"
 
 [dev-dependencies]
 insta = "1.40"

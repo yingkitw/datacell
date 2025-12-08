@@ -1,6 +1,43 @@
 use anyhow::Result;
 use crate::csv_handler::CellRange;
 
+/// Progress callback for long-running operations
+pub trait ProgressCallback: Send {
+    fn on_progress(&mut self, current: usize, total: Option<usize>, message: &str);
+}
+
+/// Simple progress reporter that prints to stderr
+pub struct StderrProgress {
+    last_percent: usize,
+}
+
+impl StderrProgress {
+    pub fn new() -> Self {
+        Self { last_percent: 0 }
+    }
+}
+
+impl ProgressCallback for StderrProgress {
+    fn on_progress(&mut self, current: usize, total: Option<usize>, message: &str) {
+        if let Some(total) = total {
+            let percent = if total > 0 { (current * 100) / total } else { 0 };
+            if percent != self.last_percent {
+                eprintln!("\r{}: {}% ({}/{})", message, percent, current, total);
+                self.last_percent = percent;
+            }
+        } else {
+            eprintln!("\r{}: {} processed", message, current);
+        }
+    }
+}
+
+/// No-op progress callback
+pub struct NoProgress;
+
+impl ProgressCallback for NoProgress {
+    fn on_progress(&mut self, _current: usize, _total: Option<usize>, _message: &str) {}
+}
+
 /// Data operations for spreadsheet manipulation
 pub struct DataOperations;
 

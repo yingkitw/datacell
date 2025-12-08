@@ -21,8 +21,11 @@ Thumbs.db
 *.csv
 *.xlsx
 *.xls
+*.parquet
+*.avro
 !tests/fixtures/*.csv
 !tests/fixtures/*.xlsx
+!examples/*.csv
 
 # Logs
 *.log

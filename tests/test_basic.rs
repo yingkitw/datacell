@@ -306,3 +306,80 @@ fn test_read_json() {
     fs::remove_file(&input_path).ok();
 }
 
+#[test]
+fn test_formula_vlookup() {
+    let evaluator = FormulaEvaluator::new();
+    // Lookup table: ID, Name, Value
+    let test_data = "1,Apple,10\n2,Banana,20\n3,Cherry,30\n";
+    
+    let input_path = unique_path("test_vlookup_input", "csv");
+    let output_path = unique_path("test_vlookup_output", "csv");
+    fs::write(&input_path, test_data).unwrap();
+    
+    // VLOOKUP(2, A1:C3, 3) - Find 2 in first column, return value from 3rd column
+    evaluator.apply_to_csv(&input_path, &output_path, "VLOOKUP(2, A1:C3, 3)", "D1").unwrap();
+    
+    let content = fs::read_to_string(&output_path).unwrap();
+    assert!(content.contains("20"), "VLOOKUP should find 20, got: {}", content);
+    
+    fs::remove_file(&input_path).ok();
+    fs::remove_file(&output_path).ok();
+}
+
+#[test]
+fn test_formula_sumif() {
+    let evaluator = FormulaEvaluator::new();
+    // Values with some > 5
+    let test_data = "3,10\n7,20\n2,30\n8,40\n";
+    
+    let input_path = unique_path("test_sumif_input", "csv");
+    let output_path = unique_path("test_sumif_output", "csv");
+    fs::write(&input_path, test_data).unwrap();
+    
+    // SUMIF(A1:A4, ">5", B1:B4) - Sum B values where A > 5 (20 + 40 = 60)
+    evaluator.apply_to_csv(&input_path, &output_path, "SUMIF(A1:A4, \">5\", B1:B4)", "C1").unwrap();
+    
+    let content = fs::read_to_string(&output_path).unwrap();
+    assert!(content.contains("60"), "SUMIF should be 60, got: {}", content);
+    
+    fs::remove_file(&input_path).ok();
+    fs::remove_file(&output_path).ok();
+}
+
+#[test]
+fn test_formula_countif() {
+    let evaluator = FormulaEvaluator::new();
+    let test_data = "5\n10\n15\n20\n25\n";
+    
+    let input_path = unique_path("test_countif_input", "csv");
+    let output_path = unique_path("test_countif_output", "csv");
+    fs::write(&input_path, test_data).unwrap();
+    
+    // COUNTIF(A1:A5, ">10") - Count values > 10 (15, 20, 25 = 3)
+    evaluator.apply_to_csv(&input_path, &output_path, "COUNTIF(A1:A5, \">10\")", "B1").unwrap();
+    
+    let content = fs::read_to_string(&output_path).unwrap();
+    assert!(content.contains("3"), "COUNTIF should be 3, got: {}", content);
+    
+    fs::remove_file(&input_path).ok();
+    fs::remove_file(&output_path).ok();
+}
+
+#[test]
+fn test_formula_round() {
+    let evaluator = FormulaEvaluator::new();
+    let test_data = "3.14159\n";
+    
+    let input_path = unique_path("test_round_input", "csv");
+    let output_path = unique_path("test_round_output", "csv");
+    fs::write(&input_path, test_data).unwrap();
+    
+    evaluator.apply_to_csv(&input_path, &output_path, "ROUND(A1, 2)", "B1").unwrap();
+    
+    let content = fs::read_to_string(&output_path).unwrap();
+    assert!(content.contains("3.14"), "ROUND should be 3.14, got: {}", content);
+    
+    fs::remove_file(&input_path).ok();
+    fs::remove_file(&output_path).ok();
+}
+

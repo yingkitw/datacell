@@ -28,6 +28,7 @@ impl FormulaResult {
     }
 }
 
+#[derive(Clone)]
 struct CellRange {
     start_row: u32,
     start_col: u16,
@@ -217,6 +218,12 @@ impl FormulaEvaluator {
             self.evaluate_abs(&formula, data)
         } else if formula.starts_with("LEN(") {
             self.evaluate_len(&formula, data)
+        } else if formula.starts_with("VLOOKUP(") {
+            self.evaluate_vlookup(&formula, data)
+        } else if formula.starts_with("SUMIF(") {
+            self.evaluate_sumif(&formula, data)
+        } else if formula.starts_with("COUNTIF(") {
+            self.evaluate_countif(&formula, data)
         } else if formula.contains('+') || formula.contains('-') || formula.contains('*') || formula.contains('/') {
             self.evaluate_arithmetic(&formula, data)
         } else if let Ok(num) = formula.parse::<f64>() {
@@ -484,6 +491,175 @@ impl FormulaEvaluator {
         // Try as string literal
         let text = inner.trim_matches('"');
         Ok(text.len() as f64)
+    }
+    
+    /// VLOOKUP(lookup_value, range, col_index, [exact_match])
+    /// Searches for a value in the first column of a range and returns a value in the same row from another column
+    fn evaluate_vlookup(&self, formula: &str, data: &[Vec<String>]) -> Result<f64> {
+        let inner = self.extract_function_args(formula)?;
+        let args = self.split_args(&inner)?;
+        
+        if args.len() < 3 || args.len() > 4 {
+            anyhow::bail!("VLOOKUP requires 3-4 arguments: VLOOKUP(lookup_value, range, col_index, [exact_match])");
+        }
+        
+        // Get lookup value
+        let lookup_value = if let Ok(num) = self.evaluate_formula(&args[0], data) {
+            num.to_string()
+        } else {
+            args[0].trim().trim_matches('"').to_string()
+        };
+        
+        // Parse range
+        let range = self.extract_range(&format!("X({})", args[1]))?;
+        
+        // Get column index (1-based in Excel convention)
+        let col_index = self.evaluate_formula(&args[2], data)? as usize;
+        if col_index < 1 {
+            anyhow::bail!("VLOOKUP col_index must be >= 1");
+        }
+        
+        // Search for value in first column of range
+        for row in range.start_row..=range.end_row {
+            if let Some(cell_text) = self.get_cell_text_by_index(row, range.start_col, data) {
+                let matches = if let (Ok(cell_num), Ok(lookup_num)) = (cell_text.parse::<f64>(), lookup_value.parse::<f64>()) {
+                    (cell_num - lookup_num).abs() < f64::EPSILON
+                } else {
+                    cell_text.to_uppercase() == lookup_value.to_uppercase()
+                };
+                
+                if matches {
+                    // Found match, return value from col_index column
+                    let result_col = range.start_col + (col_index as u16 - 1);
+                    if let Some(value) = self.get_cell_value_by_index(row, result_col, data) {
+                        return Ok(value);
+                    } else if let Some(text) = self.get_cell_text_by_index(row, result_col, data) {
+                        if let Ok(num) = text.parse::<f64>() {
+                            return Ok(num);
+                        }
+                    }
+                    anyhow::bail!("VLOOKUP: value at result column is not numeric");
+                }
+            }
+        }
+        
+        anyhow::bail!("VLOOKUP: no match found for '{}'", lookup_value)
+    }
+    
+    /// SUMIF(range, criteria, [sum_range])
+    /// Sums cells that meet a criteria
+    fn evaluate_sumif(&self, formula: &str, data: &[Vec<String>]) -> Result<f64> {
+        let inner = self.extract_function_args(formula)?;
+        let args = self.split_args(&inner)?;
+        
+        if args.is_empty() || args.len() > 3 {
+            anyhow::bail!("SUMIF requires 2-3 arguments: SUMIF(range, criteria, [sum_range])");
+        }
+        
+        let criteria_range = self.extract_range(&format!("X({})", args[0]))?;
+        let criteria = args[1].trim().trim_matches('"');
+        
+        // Parse criteria (e.g., ">10", "=5", "apple")
+        let (operator, value) = self.parse_criteria(criteria)?;
+        
+        // Sum range defaults to criteria range
+        let sum_range = if args.len() > 2 {
+            self.extract_range(&format!("X({})", args[2]))?
+        } else {
+            criteria_range.clone()
+        };
+        
+        let mut sum = 0.0;
+        let mut row_offset = 0u32;
+        
+        for row in criteria_range.start_row..=criteria_range.end_row {
+            for col in criteria_range.start_col..=criteria_range.end_col {
+                if let Some(cell_text) = self.get_cell_text_by_index(row, col, data) {
+                    if self.matches_criteria(&cell_text, &operator, &value) {
+                        // Get corresponding value from sum_range
+                        let sum_row = sum_range.start_row + row_offset;
+                        let sum_col = sum_range.start_col + (col - criteria_range.start_col);
+                        if let Some(val) = self.get_cell_value_by_index(sum_row, sum_col, data) {
+                            sum += val;
+                        }
+                    }
+                }
+            }
+            row_offset += 1;
+        }
+        
+        Ok(sum)
+    }
+    
+    /// COUNTIF(range, criteria)
+    /// Counts cells that meet a criteria
+    fn evaluate_countif(&self, formula: &str, data: &[Vec<String>]) -> Result<f64> {
+        let inner = self.extract_function_args(formula)?;
+        let args = self.split_args(&inner)?;
+        
+        if args.len() != 2 {
+            anyhow::bail!("COUNTIF requires 2 arguments: COUNTIF(range, criteria)");
+        }
+        
+        let range = self.extract_range(&format!("X({})", args[0]))?;
+        let criteria = args[1].trim().trim_matches('"');
+        
+        let (operator, value) = self.parse_criteria(criteria)?;
+        
+        let mut count = 0;
+        
+        for row in range.start_row..=range.end_row {
+            for col in range.start_col..=range.end_col {
+                if let Some(cell_text) = self.get_cell_text_by_index(row, col, data) {
+                    if self.matches_criteria(&cell_text, &operator, &value) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        
+        Ok(count as f64)
+    }
+    
+    /// Parse criteria like ">10", "<=5", "=apple", or just "apple"
+    fn parse_criteria(&self, criteria: &str) -> Result<(String, String)> {
+        let criteria = criteria.trim();
+        
+        for op in [">=", "<=", "<>", ">", "<", "="] {
+            if criteria.starts_with(op) {
+                return Ok((op.to_string(), criteria[op.len()..].to_string()));
+            }
+        }
+        
+        // No operator means exact match
+        Ok(("=".to_string(), criteria.to_string()))
+    }
+    
+    /// Check if a cell value matches the criteria
+    fn matches_criteria(&self, cell_value: &str, operator: &str, criteria_value: &str) -> bool {
+        // Try numeric comparison
+        if let (Ok(cell_num), Ok(crit_num)) = (cell_value.parse::<f64>(), criteria_value.parse::<f64>()) {
+            return match operator {
+                ">=" => cell_num >= crit_num,
+                "<=" => cell_num <= crit_num,
+                "<>" => (cell_num - crit_num).abs() >= f64::EPSILON,
+                ">" => cell_num > crit_num,
+                "<" => cell_num < crit_num,
+                "=" => (cell_num - crit_num).abs() < f64::EPSILON,
+                _ => false,
+            };
+        }
+        
+        // String comparison
+        match operator {
+            "=" => cell_value.to_uppercase() == criteria_value.to_uppercase(),
+            "<>" => cell_value.to_uppercase() != criteria_value.to_uppercase(),
+            ">" => cell_value > criteria_value,
+            "<" => cell_value < criteria_value,
+            ">=" => cell_value >= criteria_value,
+            "<=" => cell_value <= criteria_value,
+            _ => false,
+        }
     }
 
     fn evaluate_arithmetic(&self, formula: &str, data: &[Vec<String>]) -> Result<f64> {

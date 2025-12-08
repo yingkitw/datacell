@@ -1,20 +1,9 @@
 # datacell TODO
 
-## High Priority
-- [ ] Add VLOOKUP formula function
-- [ ] Merge cells (for Excel output)
-- [ ] Append data to existing file
-
-## Medium Priority
-- [ ] Write specific cell ranges
-- [ ] Read multiple sheets at once
-- [ ] Add more formula functions (SUMIF, COUNTIF)
-
-## Low Priority
-- [ ] Support .ods (OpenDocument) format
-- [ ] Add streaming support for large files
-- [ ] Add progress indicator for large file operations
+## Future Enhancements
 - [ ] Improve error messages with line/column context
+- [ ] Add more chart/visualization support
+- [ ] Add cell styling (colors, fonts, borders)
 
 ## Completed
 - [x] Rename project from cell-rs to datacell
@@ -41,3 +30,17 @@
 - [x] Transpose data (rows to columns)
 - [x] Markdown table output format
 - [x] Insert/delete rows and columns (API)
+- [x] VLOOKUP formula function
+- [x] SUMIF, COUNTIF formula functions
+- [x] Append data to existing file
+- [x] Merge cells for Excel output
+- [x] Write specific cell ranges
+- [x] Read multiple sheets at once
+- [x] ODS (OpenDocument) format support
+- [x] Streaming support for large files
+- [x] Progress callback API
+- [x] List sheets command
+- [x] Read all sheets command
+- [x] Parquet file support (read/write)
+- [x] Avro file support (read/write)
+- [x] Unit tests (25 tests passing)
