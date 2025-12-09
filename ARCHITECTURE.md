@@ -1,6 +1,6 @@
 # datacell Architecture
 
-A Rust CLI tool and MCP server for reading, writing, converting spreadsheet files (CSV, XLS, XLSX) with formula support.
+A Rust CLI tool and MCP server for reading, writing, converting spreadsheet files (CSV, XLS, XLSX, Parquet, Avro) with formula support and pandas-inspired operations.
 
 ## Overview
 
@@ -11,11 +11,27 @@ datacell/
 │   ├── lib.rs           # Library exports
 │   ├── csv_handler.rs   # CSV file operations
 │   ├── excel.rs         # Excel file operations (calamine + rust_xlsxwriter)
-│   ├── converter.rs     # Format conversion between CSV and Excel
-│   ├── formula.rs       # Formula evaluation (SUM, AVERAGE, arithmetic)
-│   └── mcp.rs           # MCP server implementation (rmcp)
+│   ├── converter.rs     # Format conversion
+│   ├── columnar.rs      # Parquet and Avro support
+│   ├── config.rs        # Configuration file support
+│   ├── error.rs         # Enhanced error types
+│   ├── mcp.rs           # MCP server implementation (rmcp)
+│   ├── formula/         # Formula evaluation module
+│   │   ├── mod.rs       # Module exports
+│   │   ├── types.rs     # FormulaResult, CellRange
+│   │   ├── evaluator.rs # Main evaluator logic
+│   │   ├── functions.rs # SUM, AVERAGE, VLOOKUP, etc.
+│   │   └── parser.rs    # Cell reference parsing
+│   └── operations/      # Data operations module
+│       ├── mod.rs       # Module exports
+│       ├── types.rs     # SortOrder, JoinType, AggFunc
+│       ├── core.rs      # Basic ops: sort, filter, replace
+│       ├── pandas.rs    # head, tail, sample, join, groupby
+│       ├── stats.rs     # describe, value_counts, correlation
+│       └── transform.rs # query, mutate, astype, normalize
 ├── tests/
 │   └── test_basic.rs    # Integration tests
+├── examples/            # Example CSV files
 ├── Cargo.toml
 └── README.md
 ```

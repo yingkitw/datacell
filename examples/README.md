@@ -2,7 +2,7 @@
 
 Sample data files for testing datacell functionality.
 
-## Files
+## CSV Files
 
 | File | Description | Use Case |
 |------|-------------|----------|
@@ -11,6 +11,29 @@ Sample data files for testing datacell functionality.
 | `numbers.csv` | Numeric grid | SUM, AVERAGE, MIN, MAX, formulas |
 | `lookup.csv` | Product catalog | VLOOKUP examples |
 | `duplicates.csv` | Data with duplicates | Dedupe testing |
+
+## Excel Files
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `sales.xlsx` | Product sales (styled) | Excel read, sheet listing |
+| `employees.xlsx` | Employee records (styled) | Excel read, JSON export |
+
+## Parquet Files
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `sales.parquet` | Product sales | Columnar format read/write |
+| `employees.parquet` | Employee records | Columnar format read/write |
+| `numbers.parquet` | Numeric grid | Columnar format read/write |
+
+## Avro Files
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `sales.avro` | Product sales | Avro format read/write |
+| `employees.avro` | Employee records | Avro format read/write |
+| `lookup.avro` | Product catalog | Avro format read/write |
 
 ## Example Commands
 

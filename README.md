@@ -90,10 +90,27 @@ datacell read --input report.xlsx --format json > report.json
   - Describe (summary statistics)
   - Value counts
   - Group by with aggregations (sum, count, mean, min, max)
+  - Pivot tables
   - Join/merge files (inner, left, right, outer)
   - Concatenate files
   - Fill/drop missing values
   - Rename columns
+  - Correlation matrix
+  - Column type inference (dtypes)
+  - Type casting (astype)
+  - Unique values
+  - Dataset info
+  - SQL-like query with WHERE clause
+  - Computed columns (mutate)
+  - Value clipping
+  - Column normalization (0-1)
+  - Date parsing and formatting
+  - Regex filter and replace
+- **Batch processing** - process multiple files with glob patterns
+- **Shell completions** - bash, zsh, fish, powershell
+- **Config file** - `.datacell.toml` for default options
+- **Styled Excel export** - headers, colors, borders, freeze panes, auto-filter
+- **Chart visualization** - bar, column, line, area, pie, scatter, doughnut charts
 - **Cell range operations** - read/write specific ranges like A1:C10
 - **Multiple output formats** - CSV, JSON, Markdown
 - **Multi-sheet support** - list sheets, read all sheets at once
@@ -280,6 +297,64 @@ datacell drop --input data.csv --output slim.csv --columns "temp,debug"
 
 # Rename columns
 datacell rename --input data.csv --output renamed.csv --from "old_name" --to "new_name"
+
+# Pivot table
+datacell pivot --input sales.csv --output pivot.csv --index Category --columns Product --values Price --agg sum
+
+# Correlation matrix
+datacell corr --input data.csv --columns "Price,Quantity" --format markdown
+
+# Show column types
+datacell dtypes --input data.csv --format markdown
+
+# SQL-like query
+datacell query --input data.csv --output filtered.csv -w "Price > 100"
+
+# Add computed column
+datacell mutate --input data.csv --output result.csv --column Total --formula "Price * Quantity"
+
+# Cast column type
+datacell astype --input data.csv --output result.csv --column Price -t int
+
+# Get unique values
+datacell unique --input data.csv --column Category
+
+# Dataset info
+datacell info --input data.csv --format markdown
+
+# Clip values to range
+datacell clip --input data.csv --output clipped.csv --column Price --min 0 --max 1000
+
+# Normalize column (0-1)
+datacell normalize --input data.csv --output normalized.csv --column Price
+
+# Parse and reformat dates
+datacell parse-date --input data.csv --output result.csv --column Date --from-format "%Y-%m-%d" --to-format "%d/%m/%Y"
+
+# Filter with regex
+datacell regex-filter --input data.csv --output filtered.csv --column Name --pattern "^[A-M]"
+
+# Replace with regex
+datacell regex-replace --input data.csv --output result.csv --column Category --pattern "Electronics" --replacement "Tech"
+
+# Batch process multiple files
+datacell batch --inputs "data/*.csv" --output-dir processed/ --operation sort --args '{"column":"Price","desc":true}'
+
+# Generate shell completions
+datacell completions zsh >> ~/.zshrc
+datacell completions bash >> ~/.bashrc
+datacell completions fish > ~/.config/fish/completions/datacell.fish
+
+# Initialize config file
+datacell config-init --output .datacell.toml
+
+# Export to Excel with styling
+datacell export-styled --input data.csv --output styled.xlsx --header-bg 4472C4 --header-font FFFFFF
+
+# Create charts
+datacell chart --input sales.csv --output chart.xlsx -t column --title "Sales by Product"
+datacell chart --input data.csv --output multi.xlsx -t bar --value-cols "1,2,3" --title "Comparison"
+datacell chart --input data.csv --output pie.xlsx -t pie --title "Distribution"
 ```
 
 ## Formula Examples

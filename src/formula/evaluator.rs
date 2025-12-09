@@ -1,0 +1,363 @@
+//! Formula evaluator
+
+use anyhow::{Context, Result};
+use crate::excel::ExcelHandler;
+use calamine::{open_workbook, Reader, Xlsx};
+use csv::{ReaderBuilder, WriterBuilder};
+use super::types::{FormulaResult, CellRange};
+
+pub struct FormulaEvaluator {
+    excel_handler: ExcelHandler,
+}
+
+impl FormulaEvaluator {
+    pub fn new() -> Self {
+        Self {
+            excel_handler: ExcelHandler::new(),
+        }
+    }
+
+    pub fn apply_to_excel(
+        &self,
+        input: &str,
+        output: &str,
+        formula: &str,
+        cell: &str,
+        sheet_name: Option<&str>,
+    ) -> Result<()> {
+        let mut workbook: Xlsx<_> = open_workbook(input)
+            .with_context(|| format!("Failed to open Excel file: {}", input))?;
+
+        let sheet_names = workbook.sheet_names();
+        let sheet_name = sheet_name
+            .or_else(|| sheet_names.first().map(|s| s.as_str()))
+            .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
+
+        let range = workbook
+            .worksheet_range(sheet_name)
+            .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
+
+        let mut new_workbook = rust_xlsxwriter::Workbook::new();
+        let worksheet = new_workbook.add_worksheet().set_name(sheet_name)?;
+
+        for (row_idx, row) in range.rows().enumerate() {
+            for (col_idx, cell) in row.iter().enumerate() {
+                if let Ok(num) = cell.to_string().parse::<f64>() {
+                    worksheet.write_number(row_idx as u32, col_idx as u16, num)?;
+                } else {
+                    worksheet.write_string(row_idx as u32, col_idx as u16, &cell.to_string())?;
+                }
+            }
+        }
+
+        let (row, col) = self.excel_handler.parse_cell_reference(cell)?;
+        worksheet.write_formula(row, col, formula)?;
+
+        new_workbook.save(output)
+            .with_context(|| format!("Failed to save Excel file: {}", output))?;
+
+        Ok(())
+    }
+
+    pub fn apply_to_csv(&self, input: &str, output: &str, formula: &str, cell: &str) -> Result<()> {
+        let mut reader = ReaderBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .from_path(input)
+            .with_context(|| format!("Failed to open CSV file: {}", input))?;
+
+        let mut records: Vec<Vec<String>> = Vec::new();
+        for result in reader.records() {
+            let record = result?;
+            records.push(record.iter().map(|s| s.to_string()).collect());
+        }
+
+        let (row, col) = self.parse_cell_reference(cell)?;
+        let value = self.evaluate_formula_full(formula, &records)?;
+
+        while records.len() <= row as usize {
+            records.push(Vec::new());
+        }
+
+        let max_cols = records.iter()
+            .map(|r| r.len())
+            .max()
+            .unwrap_or(0)
+            .max((col as usize) + 1);
+
+        for record in &mut records {
+            while record.len() < max_cols {
+                record.push(String::new());
+            }
+        }
+
+        while records[row as usize].len() <= col as usize {
+            records[row as usize].push(String::new());
+        }
+
+        records[row as usize][col as usize] = value.to_string();
+
+        let mut writer = WriterBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .from_path(output)
+            .with_context(|| format!("Failed to create CSV file: {}", output))?;
+
+        for record in records {
+            writer.write_record(&record)?;
+        }
+
+        writer.flush()?;
+        Ok(())
+    }
+
+    pub(crate) fn parse_cell_reference(&self, cell: &str) -> Result<(u32, u16)> {
+        let mut col_str = String::new();
+        let mut row_str = String::new();
+
+        for ch in cell.chars() {
+            if ch.is_alphabetic() {
+                col_str.push(ch);
+            } else if ch.is_ascii_digit() {
+                row_str.push(ch);
+            }
+        }
+
+        let col = self.column_to_index(&col_str)?;
+        let row = row_str.parse::<u32>()
+            .with_context(|| format!("Invalid row number in cell reference: {}", cell))?;
+        
+        Ok((row - 1, col))
+    }
+
+    fn column_to_index(&self, col: &str) -> Result<u16> {
+        let mut index = 0u16;
+        for ch in col.chars() {
+            index = index * 26 + (ch.to_ascii_uppercase() as u16 - b'A' as u16 + 1);
+        }
+        Ok(index - 1)
+    }
+
+    pub(crate) fn evaluate_formula_full(&self, formula: &str, data: &[Vec<String>]) -> Result<FormulaResult> {
+        let formula_upper = formula.trim().to_uppercase();
+
+        if formula_upper.starts_with("IF(") {
+            self.evaluate_if(formula, data)
+        } else if formula_upper.starts_with("CONCAT(") {
+            self.evaluate_concat(formula, data)
+        } else {
+            let num = self.evaluate_formula(&formula_upper, data)?;
+            Ok(FormulaResult::Number(num))
+        }
+    }
+
+    pub(crate) fn evaluate_formula(&self, formula: &str, data: &[Vec<String>]) -> Result<f64> {
+        let formula = formula.trim().to_uppercase();
+
+        if formula.starts_with("SUM(") {
+            self.evaluate_sum(&formula, data)
+        } else if formula.starts_with("AVERAGE(") {
+            self.evaluate_average(&formula, data)
+        } else if formula.starts_with("MIN(") {
+            self.evaluate_min(&formula, data)
+        } else if formula.starts_with("MAX(") {
+            self.evaluate_max(&formula, data)
+        } else if formula.starts_with("COUNT(") {
+            self.evaluate_count(&formula, data)
+        } else if formula.starts_with("ROUND(") {
+            self.evaluate_round(&formula, data)
+        } else if formula.starts_with("ABS(") {
+            self.evaluate_abs(&formula, data)
+        } else if formula.starts_with("LEN(") {
+            self.evaluate_len(&formula, data)
+        } else if formula.starts_with("VLOOKUP(") {
+            self.evaluate_vlookup(&formula, data)
+        } else if formula.starts_with("SUMIF(") {
+            self.evaluate_sumif(&formula, data)
+        } else if formula.starts_with("COUNTIF(") {
+            self.evaluate_countif(&formula, data)
+        } else if formula.contains('+') || formula.contains('-') || formula.contains('*') || formula.contains('/') {
+            self.evaluate_arithmetic(&formula, data)
+        } else if let Ok(num) = formula.parse::<f64>() {
+            Ok(num)
+        } else {
+            self.get_cell_value(&formula, data)
+        }
+    }
+    
+    fn evaluate_if(&self, formula: &str, data: &[Vec<String>]) -> Result<FormulaResult> {
+        let inner = self.extract_function_args(formula)?;
+        let args = self.split_args(&inner)?;
+        
+        if args.len() != 3 {
+            anyhow::bail!("IF requires 3 arguments: IF(condition, true_value, false_value)");
+        }
+        
+        let condition = self.evaluate_condition(&args[0], data)?;
+        let result_expr = if condition { &args[1] } else { &args[2] };
+        
+        if let Ok(num) = self.evaluate_formula(result_expr, data) {
+            Ok(FormulaResult::Number(num))
+        } else {
+            Ok(FormulaResult::Text(result_expr.trim().trim_matches('"').to_string()))
+        }
+    }
+    
+    fn evaluate_condition(&self, condition: &str, data: &[Vec<String>]) -> Result<bool> {
+        let ops = [">=", "<=", "<>", "!=", "=", ">", "<"];
+        
+        for op in ops {
+            if let Some(pos) = condition.find(op) {
+                let left = condition[..pos].trim();
+                let right = condition[pos + op.len()..].trim();
+                
+                let left_val = self.evaluate_formula(left, data).ok();
+                let right_val = self.evaluate_formula(right, data).ok();
+                
+                return Ok(match (left_val, right_val) {
+                    (Some(l), Some(r)) => match op {
+                        ">=" => l >= r,
+                        "<=" => l <= r,
+                        "<>" | "!=" => (l - r).abs() > f64::EPSILON,
+                        "=" => (l - r).abs() < f64::EPSILON,
+                        ">" => l > r,
+                        "<" => l < r,
+                        _ => false,
+                    },
+                    _ => {
+                        let left_str = left.trim_matches('"');
+                        let right_str = right.trim_matches('"');
+                        match op {
+                            "=" => left_str == right_str,
+                            "<>" | "!=" => left_str != right_str,
+                            _ => false,
+                        }
+                    }
+                });
+            }
+        }
+        
+        anyhow::bail!("Invalid condition: {}", condition)
+    }
+    
+    fn evaluate_concat(&self, formula: &str, data: &[Vec<String>]) -> Result<FormulaResult> {
+        let inner = self.extract_function_args(formula)?;
+        let args = self.split_args(&inner)?;
+        
+        let mut result = String::new();
+        for arg in args {
+            let arg = arg.trim();
+            if arg.starts_with('"') && arg.ends_with('"') {
+                result.push_str(&arg[1..arg.len()-1]);
+            } else if let Ok((row, col)) = self.parse_cell_reference(arg) {
+                if let Some(text) = self.get_cell_text_by_index(row, col, data) {
+                    result.push_str(&text);
+                }
+            } else {
+                result.push_str(arg);
+            }
+        }
+        
+        Ok(FormulaResult::Text(result))
+    }
+    
+    pub(crate) fn get_cell_text_by_index(&self, row: u32, col: u16, data: &[Vec<String>]) -> Option<String> {
+        if row as usize >= data.len() {
+            return None;
+        }
+        let row_data = &data[row as usize];
+        if col as usize >= row_data.len() {
+            return None;
+        }
+        Some(row_data[col as usize].clone())
+    }
+
+    pub(crate) fn get_cell_value(&self, cell_ref: &str, data: &[Vec<String>]) -> Result<f64> {
+        let (row, col) = self.parse_cell_reference(cell_ref)?;
+        self.get_cell_value_by_index(row, col, data)
+            .ok_or_else(|| anyhow::anyhow!("Cell {} is empty or invalid", cell_ref))
+    }
+
+    pub(crate) fn get_cell_value_by_index(&self, row: u32, col: u16, data: &[Vec<String>]) -> Option<f64> {
+        if row as usize >= data.len() {
+            return None;
+        }
+        let row_data = &data[row as usize];
+        if col as usize >= row_data.len() {
+            return None;
+        }
+        row_data[col as usize].parse::<f64>().ok()
+    }
+
+    pub(crate) fn extract_range(&self, formula: &str) -> Result<CellRange> {
+        let start = formula.find('(').ok_or_else(|| anyhow::anyhow!("Invalid formula format"))?;
+        let end = formula.rfind(')').ok_or_else(|| anyhow::anyhow!("Invalid formula format"))?;
+        let range_str = &formula[start+1..end];
+
+        if let Some(colon_pos) = range_str.find(':') {
+            let start_cell = &range_str[..colon_pos];
+            let end_cell = &range_str[colon_pos+1..];
+            
+            let (start_row, start_col) = self.parse_cell_reference(start_cell)?;
+            let (end_row, end_col) = self.parse_cell_reference(end_cell)?;
+
+            Ok(CellRange {
+                start_row,
+                start_col,
+                end_row,
+                end_col,
+            })
+        } else {
+            let (row, col) = self.parse_cell_reference(range_str)?;
+            Ok(CellRange {
+                start_row: row,
+                start_col: col,
+                end_row: row,
+                end_col: col,
+            })
+        }
+    }
+    
+    pub(crate) fn extract_function_args(&self, formula: &str) -> Result<String> {
+        let start = formula.find('(')
+            .ok_or_else(|| anyhow::anyhow!("Missing opening parenthesis in formula"))?;
+        let end = formula.rfind(')')
+            .ok_or_else(|| anyhow::anyhow!("Missing closing parenthesis in formula"))?;
+        
+        if end <= start {
+            anyhow::bail!("Invalid parentheses in formula");
+        }
+        
+        Ok(formula[start + 1..end].to_string())
+    }
+    
+    pub(crate) fn split_args(&self, args: &str) -> Result<Vec<String>> {
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut depth = 0;
+        
+        for ch in args.chars() {
+            match ch {
+                '(' => {
+                    depth += 1;
+                    current.push(ch);
+                }
+                ')' => {
+                    depth -= 1;
+                    current.push(ch);
+                }
+                ',' if depth == 0 => {
+                    result.push(current.trim().to_string());
+                    current = String::new();
+                }
+                _ => current.push(ch),
+            }
+        }
+        
+        if !current.is_empty() {
+            result.push(current.trim().to_string());
+        }
+        
+        Ok(result)
+    }
+}

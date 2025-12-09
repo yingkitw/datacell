@@ -9,14 +9,14 @@
 
 ### Data Aggregation (GroupBy)
 - [x] Group by column with aggregation: `datacell groupby --input sales.csv --by category --agg "sum:amount,count:id,avg:price"`
-- [ ] Pivot tables: `datacell pivot --input data.csv --index region --columns product --values sales --agg sum`
+- [x] Pivot tables: `datacell pivot --input data.csv --index region --columns product --values sales --agg sum`
 
 ### Data Joining
 - [x] Join/merge two files: `datacell join --left a.csv --right b.csv --on id --how inner`
 - [x] Concat/stack files vertically: `datacell concat --inputs "a.csv,b.csv,c.csv" --output combined.csv`
 
 ### Data Transformation
-- [ ] Add computed column: `datacell mutate --input data.csv --output out.csv --column total --formula "C*D"`
+- [x] Add computed column: `datacell mutate --input data.csv --output out.csv --column total --formula "Price * Quantity"`
 - [x] Rename columns: `datacell rename --input data.csv --from "old_name" --to "new_name"`
 - [x] Drop columns: `datacell drop --input data.csv --columns "temp,unused"`
 - [x] Fill missing values: `datacell fillna --input data.csv --value 0`
@@ -25,25 +25,36 @@
 ### Data Statistics
 - [x] Describe/summary stats: `datacell describe --input data.csv` (count, mean, std, min, max, quartiles)
 - [x] Value counts: `datacell value-counts --input data.csv --column category`
-- [ ] Correlation matrix: `datacell corr --input data.csv --columns "a,b,c"`
+- [x] Correlation matrix: `datacell corr --input data.csv --columns "Price,Quantity"`
 
 ### Data Types
-- [ ] Infer and display column types: `datacell dtypes --input data.csv`
-- [ ] Cast column types: `datacell astype --input data.csv --column age --type int`
+- [x] Infer and display column types: `datacell dtypes --input data.csv`
+- [x] Cast column types: `datacell astype --input data.csv --column age -t int`
+- [x] Get unique values: `datacell unique --input data.csv --column category`
+- [x] Dataset info: `datacell info --input data.csv`
+
+### Data Preprocessing
+- [x] Clip values to range: `datacell clip --input data.csv --column price --min 0 --max 1000`
+- [x] Normalize column (0-1): `datacell normalize --input data.csv --column price`
 
 ### Query Language
-- [ ] SQL-like query: `datacell query --input data.csv --where "age > 30 AND status = 'active'"`
-- [ ] Expression evaluation: `datacell eval --input data.csv --expr "profit = revenue - cost"`
+- [x] SQL-like query: `datacell query --input data.csv -w "Price > 100"`
+- [x] Expression evaluation (via mutate): `datacell mutate --input data.csv --column profit --formula "revenue - cost"`
 
 ## Future Enhancements
-- [ ] Improve error messages with line/column context
-- [ ] Add more chart/visualization support
-- [ ] Add cell styling (colors, fonts, borders)
-- [ ] Date/time parsing and formatting
-- [ ] Regular expression support in filter/replace
-- [ ] Multi-file operations (batch processing)
-- [ ] Config file for default options
-- [ ] Shell completions (bash, zsh, fish)
+- [ ] Add sparklines support
+- [ ] Add conditional formatting
+
+## Recently Completed
+- [x] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`
+- [x] Config file support: `datacell config-init` creates `.datacell.toml`
+- [x] Cell styling for Excel: `datacell export-styled --input data.csv --output styled.xlsx`
+- [x] Improved error types with file/row/column context
+- [x] Date/time parsing: `datacell parse-date --input data.csv --column Date --from-format "%Y-%m-%d" --to-format "%d/%m/%Y"`
+- [x] Regex filter: `datacell regex-filter --input data.csv --column Name --pattern "^[A-M]"`
+- [x] Regex replace: `datacell regex-replace --input data.csv --column Category --pattern "Old" --replacement "New"`
+- [x] Batch processing: `datacell batch --inputs "*.csv" --output-dir processed/ --operation sort --args '{"column":"Price"}'`
+- [x] Shell completions: `datacell completions zsh >> ~/.zshrc`
 
 ## Completed
 - [x] Rename project from cell-rs to datacell
@@ -83,4 +94,4 @@
 - [x] Read all sheets command
 - [x] Parquet file support (read/write)
 - [x] Avro file support (read/write)
-- [x] Unit tests (25 tests passing)
+- [x] Unit tests (105 tests passing)

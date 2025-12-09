@@ -11,12 +11,16 @@ pub mod formula;
 pub mod mcp;
 pub mod operations;
 pub mod columnar;
+pub mod config;
+pub mod error;
 
-pub use excel::ExcelHandler;
+pub use excel::{ExcelHandler, CellStyle, WriteOptions, DataChartType, ChartConfig};
 pub use csv_handler::{CsvHandler, CellRange, StreamingCsvReader, StreamingCsvWriter};
 pub use converter::Converter;
 pub use formula::{FormulaEvaluator, FormulaResult};
 pub use mcp::DatacellMcpServer;
 pub use operations::{DataOperations, SortOrder, ProgressCallback, StderrProgress, NoProgress, JoinType, AggFunc};
 pub use columnar::{ParquetHandler, AvroHandler};
+pub use config::Config;
+pub use error::{DatacellError, ErrorKind, ErrorContext, ResultExt};
 
