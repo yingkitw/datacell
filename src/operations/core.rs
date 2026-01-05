@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use super::types::SortOrder;
+use crate::traits::{SortOperator, FilterOperator, TransformOperator, DataOperator, FilterCondition, TransformOperation};
 
 /// Data operations for spreadsheet manipulation
 pub struct DataOperations;
@@ -10,8 +11,24 @@ impl DataOperations {
     pub fn new() -> Self {
         Self
     }
+}
+
+// Trait implementations for better SOC
+impl SortOperator for DataOperations {
     
-    /// Sort rows by a specific column
+    fn sort(
+        &self,
+        data: &mut Vec<Vec<String>>,
+        column: usize,
+        ascending: bool,
+    ) -> Result<()> {
+        let order = if ascending { SortOrder::Ascending } else { SortOrder::Descending };
+        self.sort_by_column(data, column, order)
+    }
+}
+
+impl DataOperations {
+    /// Sort rows by a specific column (public for backward compatibility)
     pub fn sort_by_column(
         &self,
         data: &mut Vec<Vec<String>>,
@@ -44,8 +61,30 @@ impl DataOperations {
         
         Ok(())
     }
+    }
     
-    /// Filter rows by a condition on a column
+impl FilterOperator for DataOperations {
+    fn filter(
+        &self,
+        data: &[Vec<String>],
+        column: usize,
+        condition: FilterCondition,
+    ) -> Result<Vec<Vec<String>>> {
+        let mut result = Vec::new();
+        
+        for row in data {
+            let cell_value = row.get(column).map(|s| s.as_str()).unwrap_or("");
+            if self.evaluate_condition(cell_value, &condition)? {
+                result.push(row.clone());
+            }
+        }
+        
+        Ok(result)
+    }
+}
+
+impl DataOperations {
+    /// Filter rows by a condition on a column (legacy method for compatibility)
     pub fn filter_rows(
         &self,
         data: &[Vec<String>],
@@ -53,53 +92,68 @@ impl DataOperations {
         operator: &str,
         value: &str,
     ) -> Result<Vec<Vec<String>>> {
-        let mut result = Vec::new();
-        
-        for row in data {
-            let cell_value = row.get(column).map(|s| s.as_str()).unwrap_or("");
-            if self.evaluate_filter_condition(cell_value, operator, value)? {
-                result.push(row.clone());
-            }
-        }
-        
-        Ok(result)
+        let condition = self.parse_filter_condition(operator, value)?;
+        <Self as FilterOperator>::filter(self, data, column, condition)
     }
     
-    /// Evaluate a filter condition
-    pub fn evaluate_filter_condition(&self, cell_value: &str, operator: &str, value: &str) -> Result<bool> {
-        let result = match operator {
-            "=" | "==" => cell_value == value,
-            "!=" | "<>" => cell_value != value,
-            ">" => {
-                match (cell_value.parse::<f64>(), value.parse::<f64>()) {
-                    (Ok(a), Ok(b)) => a > b,
-                    _ => cell_value > value,
-                }
-            }
-            ">=" => {
-                match (cell_value.parse::<f64>(), value.parse::<f64>()) {
-                    (Ok(a), Ok(b)) => a >= b,
-                    _ => cell_value >= value,
-                }
-            }
-            "<" => {
-                match (cell_value.parse::<f64>(), value.parse::<f64>()) {
-                    (Ok(a), Ok(b)) => a < b,
-                    _ => cell_value < value,
-                }
-            }
-            "<=" => {
-                match (cell_value.parse::<f64>(), value.parse::<f64>()) {
-                    (Ok(a), Ok(b)) => a <= b,
-                    _ => cell_value <= value,
-                }
-            }
-            "contains" => cell_value.contains(value),
-            "starts_with" => cell_value.starts_with(value),
-            "ends_with" => cell_value.ends_with(value),
+    fn parse_filter_condition(&self, operator: &str, value: &str) -> Result<FilterCondition> {
+        Ok(match operator {
+            "=" | "==" => FilterCondition::Equals(value.to_string()),
+            "!=" | "<>" => FilterCondition::NotEquals(value.to_string()),
+            ">" => FilterCondition::GreaterThan(value.to_string()),
+            ">=" => FilterCondition::GreaterThanOrEqual(value.to_string()),
+            "<" => FilterCondition::LessThan(value.to_string()),
+            "<=" => FilterCondition::LessThanOrEqual(value.to_string()),
+            "contains" => FilterCondition::Contains(value.to_string()),
+            "starts_with" => FilterCondition::StartsWith(value.to_string()),
+            "ends_with" => FilterCondition::EndsWith(value.to_string()),
             _ => anyhow::bail!("Unknown operator: {}", operator),
-        };
-        Ok(result)
+        })
+    }
+    
+    fn evaluate_condition(&self, cell_value: &str, condition: &FilterCondition) -> Result<bool> {
+        Ok(match condition {
+            FilterCondition::Equals(v) => cell_value == v,
+            FilterCondition::NotEquals(v) => cell_value != v,
+            FilterCondition::GreaterThan(v) => {
+                match (cell_value.parse::<f64>(), v.parse::<f64>()) {
+                    (Ok(a), Ok(b)) => a > b,
+                    _ => cell_value > v.as_str(),
+                }
+            }
+            FilterCondition::GreaterThanOrEqual(v) => {
+                match (cell_value.parse::<f64>(), v.parse::<f64>()) {
+                    (Ok(a), Ok(b)) => a >= b,
+                    _ => cell_value >= v.as_str(),
+                }
+            }
+            FilterCondition::LessThan(v) => {
+                match (cell_value.parse::<f64>(), v.parse::<f64>()) {
+                    (Ok(a), Ok(b)) => a < b,
+                    _ => cell_value < v.as_str(),
+                }
+            }
+            FilterCondition::LessThanOrEqual(v) => {
+                match (cell_value.parse::<f64>(), v.parse::<f64>()) {
+                    (Ok(a), Ok(b)) => a <= b,
+                    _ => cell_value <= v.as_str(),
+                }
+            }
+            FilterCondition::Contains(v) => cell_value.contains(v),
+            FilterCondition::StartsWith(v) => cell_value.starts_with(v),
+            FilterCondition::EndsWith(v) => cell_value.ends_with(v),
+            FilterCondition::Regex(pattern) => {
+                use regex::Regex;
+                let re = Regex::new(pattern)?;
+                re.is_match(cell_value)
+            }
+        })
+    }
+    
+    /// Evaluate a filter condition (legacy method for compatibility)
+    pub fn evaluate_filter_condition(&self, cell_value: &str, operator: &str, value: &str) -> Result<bool> {
+        let condition = self.parse_filter_condition(operator, value)?;
+        self.evaluate_condition(cell_value, &condition)
     }
     
     /// Replace values in a column
@@ -246,3 +300,45 @@ impl DataOperations {
         }
     }
 }
+
+impl TransformOperator for DataOperations {
+    fn transform(
+        &self,
+        data: &mut Vec<Vec<String>>,
+        operation: TransformOperation,
+    ) -> Result<()> {
+        match operation {
+            TransformOperation::RenameColumn { from, to } => {
+                if let Some(row) = data.first_mut() {
+                    if from < row.len() {
+                        row[from] = to;
+                    }
+                }
+            }
+            TransformOperation::DropColumn(col_idx) => {
+                for row in data.iter_mut() {
+                    if col_idx < row.len() {
+                        row.remove(col_idx);
+                    }
+                }
+            }
+            TransformOperation::AddColumn { name, formula: _ } => {
+                // TODO: Implement formula evaluation
+                for row in data.iter_mut() {
+                    row.push(name.clone());
+                }
+            }
+            TransformOperation::FillNa { column, value } => {
+                for row in data.iter_mut() {
+                    if column < row.len() && row[column].is_empty() {
+                        row[column] = value.clone();
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl DataOperator for DataOperations {}
+

@@ -41,9 +41,34 @@
 - [x] SQL-like query: `datacell query --input data.csv -w "Price > 100"`
 - [x] Expression evaluation (via mutate): `datacell mutate --input data.csv --column profit --formula "revenue - cost"`
 
+## Code Quality Improvements (Trait-Facing Architecture)
+- [x] Create `FileHandler` trait for unified file operations (read, write, read_range)
+- [x] Create `DataReader` and `DataWriter` traits for better testability
+- [x] Create `FormatDetector` trait for format detection and conversion
+- [x] Refactor `DataOperations` to use trait-based approach
+- [x] Create `SchemaProvider` trait for schema/metadata operations
+- [x] Create `StreamingReader` and `StreamingWriter` traits
+- [x] Add mock implementations for all traits for testing
+- [x] Refactor `Converter` to use trait-based handlers
+- [x] Create `CellRangeProvider` trait for range operations
+- [x] Improve error handling with trait-based error types
+
 ## Future Enhancements
-- [ ] Add sparklines support
-- [ ] Add conditional formatting
+- [x] Add sparklines support (using Excel formulas as workaround)
+- [x] Add conditional formatting (placeholder - requires workbook reading support)
+- [x] Data validation rules: `datacell validate --input data.csv --rules rules.json`
+- [x] Data profiling: `datacell profile --input data.csv --output profile.json`
+- [x] Time series operations: `datacell resample --input data.csv --interval daily --agg sum`
+- [x] Geospatial operations: `datacell geo-distance --from lat1,lon1 --to lat2,lon2`
+- [x] Text analysis: `datacell text-stats --input data.csv --column content`
+- [x] Anomaly detection: `datacell detect-anomalies --input data.csv --column value`
+- [x] Data encryption: `datacell encrypt --input data.csv --output encrypted.csv --key keyfile`
+- [x] Workflow orchestration: `datacell pipeline --config pipeline.toml`
+- [x] Plugin system for custom functions
+- [x] REST API server mode (placeholder - requires HTTP framework)
+- [x] Real-time data streaming support
+- [x] Data lineage tracking
+- [x] Automated data quality reports
 
 ## Recently Completed
 - [x] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`

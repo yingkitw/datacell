@@ -13,6 +13,10 @@ use parquet::file::properties::WriterProperties;
 
 use apache_avro::{Reader as AvroReader, Writer as AvroWriter, Schema as AvroSchema, types::Value as AvroValue};
 
+use crate::traits::{DataReader, DataWriter, FileHandler, SchemaProvider, DataWriteOptions};
+use crate::csv_handler::CellRange;
+use crate::helpers::{filter_by_range, default_column_names, max_column_count};
+
 /// Handler for Parquet files
 pub struct ParquetHandler;
 
@@ -90,12 +94,12 @@ impl ParquetHandler {
             anyhow::bail!("Cannot write empty data to Parquet");
         }
         
-        let num_cols = data.iter().map(|r| r.len()).max().unwrap_or(0);
+        let num_cols = max_column_count(data);
         
         // Generate column names if not provided
         let col_names: Vec<String> = column_names
             .map(|names| names.to_vec())
-            .unwrap_or_else(|| (0..num_cols).map(|i| format!("col_{}", i)).collect());
+            .unwrap_or_else(|| default_column_names(num_cols, "col"));
         
         // Create schema with string columns
         let fields: Vec<Field> = col_names.iter()
@@ -244,12 +248,12 @@ impl AvroHandler {
             anyhow::bail!("Cannot write empty data to Avro");
         }
         
-        let num_cols = data.iter().map(|r| r.len()).max().unwrap_or(0);
+        let num_cols = max_column_count(data);
         
         // Generate field names if not provided
         let names: Vec<String> = field_names
             .map(|n| n.to_vec())
-            .unwrap_or_else(|| (0..num_cols).map(|i| format!("field_{}", i)).collect());
+            .unwrap_or_else(|| default_column_names(num_cols, "field"));
         
         // Build Avro schema
         let schema_json = format!(
@@ -269,20 +273,25 @@ impl AvroHandler {
         let file = File::create(path)
             .with_context(|| format!("Failed to create Avro file: {}", path))?;
         
-        let mut writer = AvroWriter::new(&schema, file);
-        
-        for row in data {
-            let mut record: Vec<(String, AvroValue)> = Vec::new();
-            for (i, name) in names.iter().enumerate() {
-                let value = row.get(i)
-                    .map(|s| AvroValue::Union(1, Box::new(AvroValue::String(s.clone()))))
-                    .unwrap_or(AvroValue::Union(0, Box::new(AvroValue::Null)));
-                record.push((name.clone(), value));
+        {
+            let mut writer = AvroWriter::new(&schema, file);
+            
+            for row in data {
+                let mut record: Vec<(String, AvroValue)> = Vec::new();
+                for (i, name) in names.iter().enumerate() {
+                    let value = row.get(i)
+                        .map(|s| AvroValue::Union(1, Box::new(AvroValue::String(s.clone()))))
+                        .unwrap_or(AvroValue::Union(0, Box::new(AvroValue::Null)));
+                    record.push((name.clone(), value));
+                }
+                writer.append(AvroValue::Record(record))?;
             }
-            writer.append(AvroValue::Record(record))?;
+            
+            // Flush and finalize the writer - this is critical for Avro format
+            writer.flush()?;
+            // Writer is dropped here, which finalizes the Avro file
         }
         
-        writer.flush()?;
         Ok(())
     }
     
@@ -327,6 +336,172 @@ impl AvroHandler {
             }
             _ => format!("{:?}", value),
         }
+    }
+}
+
+// Trait implementations for ParquetHandler
+
+impl DataReader for ParquetHandler {
+    fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        self.read(path)
+    }
+    
+    fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        self.read_with_headers(path)
+    }
+    
+    fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
+        let all_data = self.read(path)?;
+        Ok(filter_by_range(&all_data, range))
+    }
+    
+    fn read_as_json(&self, path: &str) -> Result<String> {
+        let data = self.read(path)?;
+        serde_json::to_string_pretty(&data)
+            .with_context(|| "Failed to serialize to JSON")
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".parquet")
+    }
+}
+
+impl DataWriter for ParquetHandler {
+    fn write(&self, path: &str, data: &[Vec<String>], options: DataWriteOptions) -> Result<()> {
+        self.write(path, data, options.column_names.as_deref())
+    }
+    
+    fn write_range(
+        &self,
+        path: &str,
+        data: &[Vec<String>],
+        _start_row: usize,
+        _start_col: usize,
+    ) -> Result<()> {
+        // For Parquet, we write the entire dataset
+        self.write(path, data, None)
+    }
+    
+    fn append(&self, _path: &str, _data: &[Vec<String>]) -> Result<()> {
+        anyhow::bail!("Append operation not supported for Parquet files")
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".parquet")
+    }
+}
+
+impl FileHandler for ParquetHandler {
+    fn format_name(&self) -> &'static str {
+        "parquet"
+    }
+    
+    fn supported_extensions(&self) -> &'static [&'static str] {
+        &["parquet"]
+    }
+}
+
+impl SchemaProvider for ParquetHandler {
+    fn get_schema(&self, path: &str) -> Result<Vec<(String, String)>> {
+        self.get_schema(path)
+    }
+    
+    fn get_column_names(&self, path: &str) -> Result<Vec<String>> {
+        let schema = self.get_schema(path)?;
+        Ok(schema.into_iter().map(|(name, _)| name).collect())
+    }
+    
+    fn get_row_count(&self, path: &str) -> Result<usize> {
+        let data = self.read(path)?;
+        Ok(data.len())
+    }
+    
+    fn get_column_count(&self, path: &str) -> Result<usize> {
+        let data = self.read(path)?;
+        Ok(data.first().map(|r| r.len()).unwrap_or(0))
+    }
+}
+
+// Trait implementations for AvroHandler
+
+impl DataReader for AvroHandler {
+    fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        self.read(path)
+    }
+    
+    fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        self.read_with_headers(path)
+    }
+    
+    fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
+        let all_data = self.read(path)?;
+        Ok(filter_by_range(&all_data, range))
+    }
+    
+    fn read_as_json(&self, path: &str) -> Result<String> {
+        let data = self.read(path)?;
+        serde_json::to_string_pretty(&data)
+            .with_context(|| "Failed to serialize to JSON")
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".avro")
+    }
+}
+
+impl DataWriter for AvroHandler {
+    fn write(&self, path: &str, data: &[Vec<String>], options: DataWriteOptions) -> Result<()> {
+        self.write(path, data, options.column_names.as_deref())
+    }
+    
+    fn write_range(
+        &self,
+        path: &str,
+        data: &[Vec<String>],
+        _start_row: usize,
+        _start_col: usize,
+    ) -> Result<()> {
+        // For Avro, we write the entire dataset
+        self.write(path, data, None)
+    }
+    
+    fn append(&self, _path: &str, _data: &[Vec<String>]) -> Result<()> {
+        anyhow::bail!("Append operation not supported for Avro files")
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".avro")
+    }
+}
+
+impl FileHandler for AvroHandler {
+    fn format_name(&self) -> &'static str {
+        "avro"
+    }
+    
+    fn supported_extensions(&self) -> &'static [&'static str] {
+        &["avro"]
+    }
+}
+
+impl SchemaProvider for AvroHandler {
+    fn get_schema(&self, path: &str) -> Result<Vec<(String, String)>> {
+        self.get_schema(path)
+    }
+    
+    fn get_column_names(&self, path: &str) -> Result<Vec<String>> {
+        let schema = self.get_schema(path)?;
+        Ok(schema.into_iter().map(|(name, _)| name).collect())
+    }
+    
+    fn get_row_count(&self, path: &str) -> Result<usize> {
+        let data = self.read(path)?;
+        Ok(data.len())
+    }
+    
+    fn get_column_count(&self, path: &str) -> Result<usize> {
+        let data = self.read(path)?;
+        Ok(data.first().map(|r| r.len()).unwrap_or(0))
     }
 }
 

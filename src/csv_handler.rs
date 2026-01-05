@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use csv::{ReaderBuilder, WriterBuilder};
 use std::fs::File;
 use std::io::{Read, BufReader, BufWriter};
+use crate::traits::{DataReader, DataWriter, FileHandler, SchemaProvider, CellRangeProvider, DataWriteOptions};
 
 /// Represents a cell range like A1:B3
 #[derive(Debug, Clone)]
@@ -311,6 +312,142 @@ impl StreamingCsvWriter {
 impl Drop for StreamingCsvWriter {
     fn drop(&mut self) {
         let _ = self.writer.flush();
+    }
+}
+
+// Trait implementations for CsvHandler
+
+impl DataReader for CsvHandler {
+    fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        let mut reader = ReaderBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .from_path(path)
+            .with_context(|| format!("Failed to open CSV file: {}", path))?;
+        
+        let mut rows = Vec::new();
+        for record in reader.records() {
+            let record = record?;
+            rows.push(record.iter().map(|s| s.to_string()).collect());
+        }
+        Ok(rows)
+    }
+    
+    fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        // For CSV, headers are just the first row
+        <Self as DataReader>::read(self, path)
+    }
+    
+    fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
+        CsvHandler::read_range(self, path, range)
+    }
+    
+    fn read_as_json(&self, path: &str) -> Result<String> {
+        CsvHandler::read_as_json(self, path)
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".csv")
+    }
+}
+
+impl DataWriter for CsvHandler {
+    fn write(&self, path: &str, data: &[Vec<String>], _options: DataWriteOptions) -> Result<()> {
+        self.write_records(path, data.to_vec())
+    }
+    
+    fn write_range(
+        &self,
+        path: &str,
+        data: &[Vec<String>],
+        start_row: usize,
+        start_col: usize,
+    ) -> Result<()> {
+        self.write_range(path, data, start_row, start_col)
+    }
+    
+    fn append(&self, path: &str, data: &[Vec<String>]) -> Result<()> {
+        self.append_records(path, data)
+    }
+    
+    fn supports_format(&self, path: &str) -> bool {
+        path.to_lowercase().ends_with(".csv")
+    }
+}
+
+impl FileHandler for CsvHandler {
+    fn format_name(&self) -> &'static str {
+        "csv"
+    }
+    
+    fn supported_extensions(&self) -> &'static [&'static str] {
+        &["csv"]
+    }
+}
+
+impl SchemaProvider for CsvHandler {
+    fn get_schema(&self, path: &str) -> Result<Vec<(String, String)>> {
+        let data = <Self as DataReader>::read(self, path)?;
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let num_cols = data[0].len();
+        Ok((0..num_cols)
+            .map(|i| (format!("col_{}", i), "string".to_string()))
+            .collect())
+    }
+    
+    fn get_column_names(&self, path: &str) -> Result<Vec<String>> {
+        let data = <Self as DataReader>::read(self, path)?;
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        Ok(data[0].clone())
+    }
+    
+    fn get_row_count(&self, path: &str) -> Result<usize> {
+        let data = <Self as DataReader>::read(self, path)?;
+        Ok(data.len())
+    }
+    
+    fn get_column_count(&self, path: &str) -> Result<usize> {
+        let data = <Self as DataReader>::read(self, path)?;
+        Ok(data.first().map(|r| r.len()).unwrap_or(0))
+    }
+}
+
+/// Helper struct for CellRangeProvider implementation
+pub struct CellRangeHelper;
+
+impl CellRangeProvider for CellRangeHelper {
+    fn parse_range(&self, range_str: &str) -> Result<CellRange> {
+        CellRange::parse(range_str)
+    }
+    
+    fn to_cell_reference(&self, row: usize, col: usize) -> String {
+        CellRange::index_to_column(col, row)
+    }
+    
+    fn from_cell_reference(&self, cell: &str) -> Result<(usize, usize)> {
+        CellRange::parse_cell(cell)
+    }
+}
+
+impl CellRange {
+    /// Convert column index and row to cell reference (e.g., (0, 0) -> "A1")
+    pub fn index_to_column(col: usize, row: usize) -> String {
+        let mut index = col;
+        index += 1; // Convert to 1-based
+        let mut result = String::new();
+        while index > 0 {
+            index -= 1;
+            result.push((b'A' + (index % 26) as u8) as char);
+            index /= 26;
+        }
+        let col_str: String = result.chars().rev().collect();
+        format!("{}{}", col_str, row + 1)
     }
 }
 

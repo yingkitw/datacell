@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "email": [
+      {"type": "Email"},
+      {"type": "NotNull"}
+    ],
+    "age": [
+      {"type": "Numeric"},
+      {"type": "Range", "min": 0, "max": 150}
+    ],
+    "name": [
+      {"type": "NotNull"},
+      {"type": "Length", "min": 1, "max": 100}
+    ],
+    "status": [
+      {"type": "Enum", "values": ["active", "inactive", "pending"]}
+    ],
+    "price": [
+      {"type": "Numeric"},
+      {"type": "Range", "min": 0}
+    ],
+    "description": [
+      {"type": "Length", "max": 1000}
+    ],
+    "website": [
+      {"type": "Url"}
+    ],
+    "phone": [
+      {"type": "Regex", "pattern": "^\\+?[\\d\\s\\-\\(\\)]{10,}$"}
+    ],
+    "created_date": [
+      {"type": "Date", "format": "%Y-%m-%d"}
+    ]
+  },
+  "strict_mode": false,
+  "stop_on_first_error": false,
+  "max_errors": 1000
+}

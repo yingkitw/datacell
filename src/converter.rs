@@ -1,22 +1,21 @@
 use anyhow::Result;
 use crate::excel::ExcelHandler;
 use crate::csv_handler::CsvHandler;
-use crate::columnar::{ParquetHandler, AvroHandler};
+use crate::handler_registry::HandlerRegistry;
+use crate::traits::DataWriteOptions;
 
 pub struct Converter {
+    registry: HandlerRegistry,
     excel_handler: ExcelHandler,
     csv_handler: CsvHandler,
-    parquet_handler: ParquetHandler,
-    avro_handler: AvroHandler,
 }
 
 impl Converter {
     pub fn new() -> Self {
         Self {
+            registry: HandlerRegistry::new(),
             excel_handler: ExcelHandler::new(),
             csv_handler: CsvHandler::new(),
-            parquet_handler: ParquetHandler::new(),
-            avro_handler: AvroHandler::new(),
         }
     }
 
@@ -34,62 +33,53 @@ impl Converter {
     
     /// Read data from any supported format
     fn read_any(&self, path: &str, sheet_name: Option<&str>) -> Result<Vec<Vec<String>>> {
-        let ext = self.get_extension(path)?;
-        
-        match ext.as_str() {
-            "csv" => {
-                let content = self.csv_handler.read(path)?;
-                Ok(self.parse_csv_data(&content))
+        // Check if it's an Excel format that needs special handling
+        if path.to_lowercase().ends_with(".xlsx") || 
+           path.to_lowercase().ends_with(".xls") ||
+           path.to_lowercase().ends_with(".ods") {
+            if path.to_lowercase().ends_with(".ods") {
+                return self.excel_handler.read_ods_data(path, sheet_name);
             }
-            "xlsx" | "xls" => {
-                let content = self.excel_handler.read_with_sheet(path, sheet_name)?;
-                Ok(self.parse_csv_data(&content))
-            }
-            "ods" => {
-                self.excel_handler.read_ods_data(path, sheet_name)
-            }
-            "parquet" => {
-                self.parquet_handler.read_with_headers(path)
-            }
-            "avro" => {
-                self.avro_handler.read_with_headers(path)
-            }
-            _ => anyhow::bail!("Unsupported input format: {}", ext),
+            let content = self.excel_handler.read_with_sheet(path, sheet_name)?;
+            return Ok(self.parse_csv_data(&content));
         }
+        
+        // For Parquet and Avro, use read_with_headers to include column names
+        if path.to_lowercase().ends_with(".parquet") {
+            use crate::columnar::ParquetHandler;
+            let handler = ParquetHandler::new();
+            return handler.read_with_headers(path);
+        }
+        
+        if path.to_lowercase().ends_with(".avro") {
+            use crate::columnar::AvroHandler;
+            let handler = AvroHandler::new();
+            return handler.read_with_headers(path);
+        }
+        
+        // Use registry for CSV and other formats
+        self.registry.read(path)
     }
     
     /// Write data to any supported format
     fn write_any(&self, path: &str, data: &[Vec<String>], sheet_name: Option<&str>) -> Result<()> {
-        let ext = self.get_extension(path)?;
-        
-        match ext.as_str() {
-            "csv" => {
-                self.csv_handler.write_records(path, data.to_vec())?;
-            }
-            "xlsx" | "xls" => {
-                // Write to temp CSV then convert
-                let temp_csv = format!("{}.tmp.csv", path);
-                self.csv_handler.write_records(&temp_csv, data.to_vec())?;
-                self.excel_handler.write_from_csv(&temp_csv, path, sheet_name)?;
-                std::fs::remove_file(&temp_csv).ok();
-            }
-            "parquet" => {
-                self.parquet_handler.write(path, data, None)?;
-            }
-            "avro" => {
-                self.avro_handler.write(path, data, None)?;
-            }
-            _ => anyhow::bail!("Unsupported output format: {}", ext),
+        // Check if it's an Excel format that needs special handling
+        if path.to_lowercase().ends_with(".xlsx") || 
+           path.to_lowercase().ends_with(".xls") {
+            // Write to temp CSV then convert
+            let temp_csv = format!("{}.tmp.csv", path);
+            self.csv_handler.write_records(&temp_csv, data.to_vec())?;
+            self.excel_handler.write_from_csv(&temp_csv, path, sheet_name)?;
+            std::fs::remove_file(&temp_csv).ok();
+            return Ok(());
         }
         
-        Ok(())
-    }
-
-    fn get_extension(&self, path: &str) -> Result<String> {
-        path.split('.')
-            .last()
-            .map(|s| s.to_lowercase())
-            .ok_or_else(|| anyhow::anyhow!("No file extension found in: {}", path))
+        // Use registry for other formats
+        let options = DataWriteOptions {
+            sheet_name: sheet_name.map(|s| s.to_string()),
+            ..Default::default()
+        };
+        self.registry.write(path, data, options)
     }
 
     fn parse_csv_data(&self, data: &str) -> Vec<Vec<String>> {
