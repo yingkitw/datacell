@@ -25,7 +25,7 @@ impl ParquetHandler {
         Self
     }
     
-    /// Read Parquet file into Vec<Vec<String>>
+    /// Read Parquet file into `Vec<Vec<String>>`
     pub fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
         let file = File::open(path)
             .with_context(|| format!("Failed to open Parquet file: {}", path))?;
@@ -194,7 +194,7 @@ impl AvroHandler {
         Self
     }
     
-    /// Read Avro file into Vec<Vec<String>>
+    /// Read Avro file into `Vec<Vec<String>>`
     pub fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
         let file = File::open(path)
             .with_context(|| format!("Failed to open Avro file: {}", path))?;

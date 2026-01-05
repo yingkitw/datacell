@@ -180,7 +180,7 @@ impl ExcelHandler {
         Ok(output)
     }
 
-    /// Read ODS into Vec<Vec<String>>
+    /// Read ODS into `Vec<Vec<String>>`
     pub fn read_ods_data(&self, path: &str, sheet_name: Option<&str>) -> Result<Vec<Vec<String>>> {
         let mut workbook: Ods<_> = open_workbook(path)
             .with_context(|| format!("Failed to open ODS file: {}", path))?;
@@ -209,7 +209,7 @@ impl ExcelHandler {
         Ok(workbook.sheet_names().to_vec())
     }
 
-    /// Auto-detect format (XLSX/XLS/ODS) and read into Vec<Vec<String>>
+    /// Auto-detect format (XLSX/XLS/ODS) and read into `Vec<Vec<String>>`
     pub fn read_auto(&self, path: &str, sheet_or_range: Option<&str>) -> Result<Vec<Vec<String>>> {
         let path_lower = path.to_lowercase();
         
