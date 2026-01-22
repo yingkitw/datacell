@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rust_xlsxwriter::{Format, Color, FormatAlign, FormatBorder};
+use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder};
 
 /// Cell style configuration
 #[derive(Debug, Clone, Default)]
@@ -33,10 +33,10 @@ impl CellStyle {
             ..Default::default()
         }
     }
-    
+
     pub fn to_format(&self) -> Format {
         let mut format = Format::new();
-        
+
         if self.bold {
             format = format.set_bold();
         }
@@ -72,10 +72,10 @@ impl CellStyle {
         if let Some(ref num_fmt) = self.number_format {
             format = format.set_num_format(num_fmt);
         }
-        
+
         format
     }
-    
+
     pub(crate) fn parse_hex_color(hex: &str) -> Result<Color> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {

@@ -4,9 +4,8 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc;
-use tokio::sync::broadcast;
 use std::collections::VecDeque;
+use tokio::sync::broadcast;
 
 /// Streaming data chunk
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +50,7 @@ impl StreamingProcessor {
             buffer_size,
         }
     }
-    
+
     /// Process data in streaming fashion
     pub fn process_streaming<R, W, F>(
         &self,
@@ -66,14 +65,14 @@ impl StreamingProcessor {
     {
         let mut total_chunks = 0;
         let mut buffer = VecDeque::new();
-        
+
         while reader.has_more() {
             if let Some(chunk) = reader.read_chunk(self.chunk_size)? {
                 let processed = processor(&chunk)?;
-                
+
                 // Buffer chunks if needed
                 buffer.push_back(processed);
-                
+
                 // Write when buffer is full
                 if buffer.len() >= self.buffer_size {
                     if let Some(buffered) = buffer.pop_front() {
@@ -83,36 +82,32 @@ impl StreamingProcessor {
                 }
             }
         }
-        
+
         // Flush remaining chunks
         while let Some(chunk) = buffer.pop_front() {
             writer.write_chunk(&chunk)?;
             total_chunks += 1;
         }
-        
+
         writer.flush()?;
         Ok(total_chunks)
     }
-    
+
     /// Stream data with callback
-    pub fn stream_with_callback<R, F>(
-        &self,
-        reader: &mut R,
-        callback: F,
-    ) -> Result<usize>
+    pub fn stream_with_callback<R, F>(&self, reader: &mut R, callback: F) -> Result<usize>
     where
         R: StreamingDataReader,
         F: Fn(&DataChunk) -> Result<()>,
     {
         let mut total_chunks = 0;
-        
+
         while reader.has_more() {
             if let Some(chunk) = reader.read_chunk(self.chunk_size)? {
                 callback(&chunk)?;
                 total_chunks += 1;
             }
         }
-        
+
         Ok(total_chunks)
     }
 }
@@ -128,14 +123,16 @@ impl StreamingChannel {
         let (sender, receiver) = broadcast::channel(buffer);
         Self { sender, receiver }
     }
-    
+
     pub fn send(&self, chunk: DataChunk) -> Result<usize> {
-        self.sender.send(chunk)
+        self.sender
+            .send(chunk)
             .map_err(|e| anyhow::anyhow!("Failed to send chunk: {}", e))
     }
-    
+
     pub async fn receive(&mut self) -> Result<DataChunk> {
-        self.receiver.recv()
+        self.receiver
+            .recv()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to receive chunk: {}", e))
     }
@@ -154,7 +151,7 @@ impl CsvStreamingReader {
         // Create reader on initialization
         let reader = csv::Reader::from_path(path)
             .map_err(|e| anyhow::anyhow!("Failed to open CSV: {}", e))?;
-        
+
         Ok(Self {
             path: path.to_string(),
             current_row: 0,
@@ -162,11 +159,13 @@ impl CsvStreamingReader {
             reader: Some(reader),
         })
     }
-    
+
     fn ensure_reader(&mut self) -> Result<&mut csv::Reader<std::fs::File>> {
         if self.reader.is_none() {
-            self.reader = Some(csv::Reader::from_path(&self.path)
-                .map_err(|e| anyhow::anyhow!("Failed to open CSV: {}", e))?);
+            self.reader = Some(
+                csv::Reader::from_path(&self.path)
+                    .map_err(|e| anyhow::anyhow!("Failed to open CSV: {}", e))?,
+            );
         }
         Ok(self.reader.as_mut().unwrap())
     }
@@ -176,27 +175,31 @@ impl StreamingDataReader for CsvStreamingReader {
     fn read_chunk(&mut self, chunk_size: usize) -> Result<Option<DataChunk>> {
         let start_row = self.current_row;
         let reader = self.ensure_reader()?;
-        
+
         let mut chunk_data: Vec<Vec<String>> = Vec::new();
         let mut rows_read = 0;
-        
+
         for result in reader.records().take(chunk_size) {
             let record = result?;
             chunk_data.push(record.iter().map(|s| s.to_string()).collect());
             rows_read += 1;
         }
-        
+
         // Update current_row after reading
         self.current_row = start_row + rows_read;
-        
+
         if chunk_data.is_empty() {
             return Ok(None);
         }
-        
+
         let column_count = chunk_data.first().map(|r| r.len()).unwrap_or(0);
-        
-        let sequence = if chunk_size > 0 { start_row / chunk_size } else { 0 };
-        
+
+        let sequence = if chunk_size > 0 {
+            start_row / chunk_size
+        } else {
+            0
+        };
+
         Ok(Some(DataChunk {
             sequence,
             data: chunk_data,
@@ -208,17 +211,15 @@ impl StreamingDataReader for CsvStreamingReader {
             },
         }))
     }
-    
+
     fn has_more(&self) -> bool {
         // Simplified - in real implementation, would check file position
         self.reader.is_some()
     }
-    
+
     fn reset(&mut self) -> Result<()> {
         self.reader = Some(csv::Reader::from_path(&self.path)?);
         self.current_row = 0;
         Ok(())
     }
 }
-
-

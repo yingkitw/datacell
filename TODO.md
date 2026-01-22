@@ -1,5 +1,16 @@
 # datacell TODO
 
+## Immediate Improvements
+
+- [x] Replace placeholder CLI handlers with real implementations
+  - [x] Implement `config-init`
+  - [x] Implement `export-styled`
+  - [x] Implement transform handlers: clip/normalize/parse-date/regex-filter/regex-replace
+- [x] Align README/ARCHITECTURE with actual supported formats and commands
+- [x] Ensure `cargo test` passes after CLI refactor
+- [x] Fix all compiler warnings (unused imports, unused variables)
+- [x] Update documentation (README.md, ARCHITECTURE.md, CLAUDE.md)
+
 ## Inspired by pandas
 
 ### Data Selection & Indexing

@@ -3,9 +3,9 @@
 //! Tracks data transformations and operations for audit and debugging.
 
 use anyhow::Result;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::Utc;
 
 /// Lineage node representing a data operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl LineageTracker {
             node_map: HashMap::new(),
         }
     }
-    
+
     /// Record an operation
     pub fn record_operation(
         &mut self,
@@ -51,33 +51,39 @@ impl LineageTracker {
             parameters,
             parent_nodes: Vec::new(),
         };
-        
+
         self.node_map.insert(id.clone(), self.nodes.len());
         self.nodes.push(node);
-        
+
         id
     }
-    
+
     /// Get lineage for a file
     pub fn get_lineage(&self, file: &str) -> Vec<&LineageNode> {
-        self.nodes.iter()
-            .filter(|node| node.input_files.contains(&file.to_string()) || 
-                          node.output_files.contains(&file.to_string()))
+        self.nodes
+            .iter()
+            .filter(|node| {
+                node.input_files.contains(&file.to_string())
+                    || node.output_files.contains(&file.to_string())
+            })
             .collect()
     }
-    
+
     /// Export lineage as JSON
     pub fn export_json(&self) -> Result<String> {
         serde_json::to_string_pretty(&self.nodes)
             .map_err(|e| anyhow::anyhow!("Failed to serialize lineage: {}", e))
     }
-    
+
     /// Export lineage as graph (DOT format)
     pub fn export_dot(&self) -> String {
         let mut dot = String::from("digraph lineage {\n");
-        
+
         for node in &self.nodes {
-            dot.push_str(&format!("  \"{}\" [label=\"{}\"];\n", node.id, node.operation));
+            dot.push_str(&format!(
+                "  \"{}\" [label=\"{}\"];\n",
+                node.id, node.operation
+            ));
             for input in &node.input_files {
                 dot.push_str(&format!("  \"{}\" -> \"{}\";\n", input, node.id));
             }
@@ -85,9 +91,8 @@ impl LineageTracker {
                 dot.push_str(&format!("  \"{}\" -> \"{}\";\n", node.id, output));
             }
         }
-        
+
         dot.push_str("}\n");
         dot
     }
 }
-

@@ -22,12 +22,13 @@ Common pain points:
 
 **datacell** is a single, fast CLI tool that:
 
-- Reads/writes **all major formats**: CSV, XLS, XLSX, ODS, Parquet, Avro
+- Reads/writes **all major formats**: CSV, XLSX, XLS, ODS, Parquet, Avro
 - Applies **Excel-like formulas** to any format (SUM, VLOOKUP, IF, etc.)
 - Performs **data operations** without code (sort, filter, dedupe, transpose)
 - Converts **between any formats** with one command
 - Outputs to **JSON/Markdown** for easy integration
 - Runs as an **MCP server** for AI assistant integration
+- Provides **pandas-style operations** for data manipulation
 
 ## Why datacell?
 
@@ -41,13 +42,13 @@ Common pain points:
 | CLI-native | ✅ | ❌ | ✅ | ✅ | ❌ |
 | Fast startup | ✅ | ❌ | ❌ | ✅ | ❌ |
 | Scriptable | ✅ | ✅ | ✅ | ✅ | ❌ |
-| No dependencies | ✅ | ❌ | ❌ | ✅ | ❌ |
+| No runtime dependencies | ✅ | ❌ | ✅ | ✅ | ❌ |
 
 ## Quick Start
 
 ```bash
-# Install
-cargo install --path .
+# Build
+cargo build --release
 
 # Convert CSV to Parquet
 datacell convert --input data.csv --output data.parquet
@@ -55,8 +56,8 @@ datacell convert --input data.csv --output data.parquet
 # Apply formula
 datacell formula --input sales.csv --output result.csv --formula "SUM(C2:C100)" --cell "D1"
 
-# Filter and sort
-datacell filter --input data.csv --output filtered.csv --column status --op "=" --value "active"
+# Filter and sort (SQL-like syntax)
+datacell filter --input data.csv --output filtered.csv --where "status = 'active'"
 datacell sort --input filtered.csv --output sorted.csv --column date --descending
 
 # Output as JSON for API consumption
@@ -65,9 +66,9 @@ datacell read --input report.xlsx --format json > report.json
 
 ## Features
 
-- **Read** XLS, XLSX, ODS, CSV, Parquet, and Avro files
-- **Write** data to XLS, XLSX, CSV, Parquet, and Avro files
-- **Convert** between any formats (CSV, Excel, ODS, Parquet, Avro)
+- **Read** XLSX, ODS, CSV, Parquet, and Avro files
+- **Write** data to XLSX, CSV, Parquet, and Avro files
+- **Convert** between any formats (CSV, XLSX, ODS, Parquet, Avro)
 - **Apply formulas** to cells in both CSV and Excel files
   - Supports basic arithmetic operations (+, -, *, /)
   - Supports SUM(), AVERAGE(), MIN(), MAX(), COUNT() functions
@@ -230,11 +231,9 @@ datacell sort --input data.csv --output sorted.csv --column A
 # Sort by column B (descending)
 datacell sort --input data.csv --output sorted.csv --column B --descending
 
-# Filter rows where column A > 10
-datacell filter --input data.csv --output filtered.csv --column A --op ">" --value 10
-
-# Filter rows containing text
-datacell filter --input data.csv --output filtered.csv --column B --op contains --value "hello"
+# Filter rows using SQL-like WHERE clause
+datacell filter --input data.csv --output filtered.csv --where "A > 10"
+datacell filter --input data.csv --output filtered.csv --where "status = 'active'"
 
 # Find and replace
 datacell replace --input data.csv --output replaced.csv --find "old" --replace "new"
@@ -425,30 +424,157 @@ See the `examples/` folder for sample data files and usage examples.
 datacell/
 ├── src/
 │   ├── main.rs          # CLI entry point
-│   ├── excel.rs         # Excel/ODS file handling
+│   ├── lib.rs           # Library exports
+│   ├── cli.rs           # CLI commands + handlers
+│   ├── traits.rs        # Core trait definitions
+│   ├── excel/           # Excel/ODS file handling
 │   ├── csv_handler.rs   # CSV file handling
 │   ├── columnar.rs      # Parquet/Avro handling
 │   ├── converter.rs     # Format conversion
-│   ├── formula.rs       # Formula evaluation
-│   ├── operations.rs    # Data operations (sort, filter, etc.)
+│   ├── formula/         # Formula evaluation
+│   ├── operations/      # Data operations (sort, filter, etc.)
+│   ├── common.rs        # Shared utilities
+│   ├── config.rs        # Configuration file support
+│   ├── validation.rs    # Data validation
+│   ├── profiling.rs     # Data profiling
+│   ├── quality.rs       # Data quality reports
+│   ├── text_analysis.rs # Text analysis
+│   ├── timeseries.rs    # Time series operations
+│   ├── geospatial.rs    # Geospatial calculations
+│   ├── anomaly.rs       # Anomaly detection
+│   ├── encryption.rs    # File encryption
+│   ├── workflow.rs      # Workflow orchestration
+│   ├── api.rs           # REST API server
+│   ├── plugins.rs       # Plugin system
+│   ├── streaming.rs     # Streaming data processing
 │   └── mcp.rs           # MCP server for AI integration
+├── tests/               # Integration tests
 ├── examples/            # Sample data files
+├── CLAUDE.md            # AI assistant guide
 └── Cargo.toml
+```
+
+## Advanced Features
+
+### Data Validation
+```bash
+# Validate data against rules
+datacell validate --input data.csv --rules rules.json --output validated.csv --report report.json
+```
+
+### Data Profiling
+```bash
+# Generate data profile and quality report
+datacell profile --input data.csv --output profile.json --report quality_report.md
+```
+
+### Text Analysis
+```bash
+# Analyze text content
+datacell text-analysis --input data.csv --column content --operation stats
+datacell text-analysis --input data.csv --column content --operation sentiment
+datacell text-analysis --input data.csv --column content --operation keywords
+```
+
+### Time Series Operations
+```bash
+# Resample time series data
+datacell resample --input data.csv --output resampled.csv --date-column date --value-column value --interval daily --aggregation sum
+```
+
+### Geospatial Operations
+```bash
+# Calculate distance between coordinates
+datacell geo-distance --from "40.7128,-74.0060" --to "34.0522,-118.2437" --unit km
+```
+
+### Anomaly Detection
+```bash
+# Detect anomalies using statistical methods
+datacell detect-anomalies --input data.csv --column value --method zscore --threshold 3.0 --output anomalies.json
+```
+
+### Data Encryption
+```bash
+# Encrypt/decrypt data files
+datacell encrypt --input data.csv --output encrypted.csv --key secretkey --algorithm aes256
+datacell decrypt --input encrypted.csv --output decrypted.csv --key secretkey --algorithm aes256
+```
+
+### Workflow Orchestration
+```bash
+# Execute multi-step workflow pipeline
+datacell pipeline --config pipeline.toml
+```
+
+### REST API Server
+```bash
+# Start REST API server (requires HTTP framework implementation)
+datacell api-server --host 127.0.0.1 --port 8080 --cors
 ```
 
 ## Dependencies
 
 | Crate | Purpose |
 |-------|---------|
-| `clap` | CLI argument parsing |
+| `clap` | CLI argument parsing with derive macros |
 | `calamine` | Excel/ODS reading |
-| `rust_xlsxwriter` | Excel writing |
+| `rust_xlsxwriter` | Excel writing (XLSX only) |
 | `csv` | CSV handling |
-| `parquet` + `arrow` | Parquet support |
+| `parquet` + `arrow` | Parquet support (v54) |
 | `apache-avro` | Avro support |
-| `rmcp` | MCP server |
+| `rmcp` | MCP server implementation (v0.12) |
+| `tokio` | Async runtime |
 | `serde_json` | JSON output |
+| `regex` | Pattern matching |
+| `chrono` | Date/time handling |
+| `anyhow` | Error handling |
+| `thiserror` | Error types |
+
+## Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test
+cargo test test_read_xlsx
+
+# Run with output
+cargo test -- --nocapture
+
+# Generate test coverage
+cargo install cargo-tarpaulin
+cargo tarpaulin --out Html
+```
+
+## Configuration
+
+Create a `.datacell.toml` file for default options:
+
+```bash
+datacell config-init --output .datacell.toml
+```
+
+Example configuration:
+```toml
+[excel]
+header_bold = true
+header_bg_color = "4472C4"
+header_font_color = "FFFFFF"
+auto_filter = true
+freeze_header = true
+auto_fit = true
+
+[output]
+default_format = "csv"
+include_headers = true
+```
 
 ## License
 
-MIT
+Apache-2.0
+
+## Contributing
+
+See [CLAUDE.md](CLAUDE.md) for development guidance and architectural details.

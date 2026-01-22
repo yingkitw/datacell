@@ -1,12 +1,12 @@
 //! Excel file handling module
 
-mod types;
-mod reader;
-mod writer;
 mod chart;
+mod reader;
+mod types;
+mod writer;
 
+#[allow(unused_imports)]
+pub use chart::{ChartConfig, DataChartType};
 pub use reader::ExcelHandler;
 #[allow(unused_imports)]
 pub use types::{CellStyle, WriteOptions};
-#[allow(unused_imports)]
-pub use chart::{DataChartType, ChartConfig};

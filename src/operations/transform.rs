@@ -1,8 +1,8 @@
 //! Data transformation operations
 
-use anyhow::Result;
 use super::core::DataOperations;
 use super::types::SortOrder;
+use anyhow::Result;
 
 struct QueryCondition {
     column: usize,
@@ -16,45 +16,54 @@ impl DataOperations {
         if data.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         let header = &data[0];
         let mut result = vec![header.clone()];
-        
+
         let conditions = self.parse_where_clause(where_clause, header)?;
-        
+
         for row in data.iter().skip(1) {
             if self.evaluate_conditions(row, &conditions, header)? {
                 result.push(row.clone());
             }
         }
-        
+
         Ok(result)
     }
-    
+
     fn parse_where_clause(&self, clause: &str, header: &[String]) -> Result<Vec<QueryCondition>> {
         let mut conditions = Vec::new();
-        
-        let re_pattern = regex::Regex::new(r#"(\w+)\s*(>=|<=|!=|<>|=|>|<|contains|starts_with|ends_with)\s*['"]?([^'"]+)['"]?"#)?;
-        
+
+        let re_pattern = regex::Regex::new(
+            r#"(\w+)\s*(>=|<=|!=|<>|=|>|<|contains|starts_with|ends_with)\s*['"]?([^'"]+)['"]?"#,
+        )?;
+
         for cap in re_pattern.captures_iter(clause) {
             let col_name = cap.get(1).map(|m| m.as_str()).unwrap_or("");
             let op = cap.get(2).map(|m| m.as_str()).unwrap_or("=");
             let value = cap.get(3).map(|m| m.as_str().trim()).unwrap_or("");
-            
-            let col_idx = header.iter().position(|h| h == col_name)
+
+            let col_idx = header
+                .iter()
+                .position(|h| h == col_name)
                 .ok_or_else(|| anyhow::anyhow!("Column '{}' not found", col_name))?;
-            
+
             conditions.push(QueryCondition {
                 column: col_idx,
                 operator: op.to_string(),
                 value: value.to_string(),
             });
         }
-        
+
         Ok(conditions)
     }
-    
-    fn evaluate_conditions(&self, row: &[String], conditions: &[QueryCondition], _header: &[String]) -> Result<bool> {
+
+    fn evaluate_conditions(
+        &self,
+        row: &[String],
+        conditions: &[QueryCondition],
+        _header: &[String],
+    ) -> Result<bool> {
         for cond in conditions {
             let cell_value = row.get(cond.column).map(|s| s.as_str()).unwrap_or("");
             if !self.evaluate_filter_condition(cell_value, &cond.operator, &cond.value)? {
@@ -63,7 +72,7 @@ impl DataOperations {
         }
         Ok(true)
     }
-    
+
     /// Add computed column using formula
     pub fn mutate(
         &self,
@@ -74,28 +83,33 @@ impl DataOperations {
         if data.is_empty() {
             return Ok(());
         }
-        
+
         data[0].push(new_col_name.to_string());
         let header = data[0].clone();
-        
+
         for row_idx in 1..data.len() {
             let value = self.evaluate_row_formula(formula, &data[row_idx], &header)?;
             data[row_idx].push(value);
         }
-        
+
         Ok(())
     }
-    
-    fn evaluate_row_formula(&self, formula: &str, row: &[String], header: &[String]) -> Result<String> {
+
+    fn evaluate_row_formula(
+        &self,
+        formula: &str,
+        row: &[String],
+        header: &[String],
+    ) -> Result<String> {
         let mut expr = formula.to_string();
-        
+
         for (idx, col_name) in header.iter().enumerate() {
             if expr.contains(col_name) {
                 let val = row.get(idx).cloned().unwrap_or_default();
                 expr = expr.replace(col_name, &val);
             }
         }
-        
+
         for idx in 0..row.len() {
             let letter = (b'A' + idx as u8) as char;
             let pattern = format!("{}", letter);
@@ -104,58 +118,58 @@ impl DataOperations {
                 expr = expr.replace(&pattern, &val);
             }
         }
-        
+
         if let Ok(result) = self.eval_arithmetic(&expr) {
             return Ok(format!("{:.2}", result));
         }
-        
+
         Ok(expr)
     }
-    
+
     pub(crate) fn eval_arithmetic(&self, expr: &str) -> Result<f64> {
         let expr = expr.replace(" ", "");
-        
+
         if let Ok(n) = expr.parse::<f64>() {
             return Ok(n);
         }
-        
+
         if let Some(pos) = expr.rfind('*') {
             let left = self.eval_arithmetic(&expr[..pos])?;
-            let right = self.eval_arithmetic(&expr[pos+1..])?;
+            let right = self.eval_arithmetic(&expr[pos + 1..])?;
             return Ok(left * right);
         }
         if let Some(pos) = expr.rfind('/') {
             let left = self.eval_arithmetic(&expr[..pos])?;
-            let right = self.eval_arithmetic(&expr[pos+1..])?;
+            let right = self.eval_arithmetic(&expr[pos + 1..])?;
             if right == 0.0 {
                 anyhow::bail!("Division by zero");
             }
             return Ok(left / right);
         }
-        
+
         let bytes = expr.as_bytes();
         for i in (1..bytes.len()).rev() {
             if bytes[i] == b'+' {
                 let left = self.eval_arithmetic(&expr[..i])?;
-                let right = self.eval_arithmetic(&expr[i+1..])?;
+                let right = self.eval_arithmetic(&expr[i + 1..])?;
                 return Ok(left + right);
             }
             if bytes[i] == b'-' {
                 let left = self.eval_arithmetic(&expr[..i])?;
-                let right = self.eval_arithmetic(&expr[i+1..])?;
+                let right = self.eval_arithmetic(&expr[i + 1..])?;
                 return Ok(left - right);
             }
         }
-        
+
         anyhow::bail!("Cannot evaluate: {}", expr)
     }
-    
+
     /// Cast column to specified type
     pub fn astype(&self, data: &mut Vec<Vec<String>>, column: usize, dtype: &str) -> Result<usize> {
         if data.is_empty() {
             return Ok(0);
         }
-        
+
         let mut converted = 0;
         for row in data.iter_mut().skip(1) {
             if let Some(cell) = row.get_mut(column) {
@@ -196,10 +210,10 @@ impl DataOperations {
                 *cell = new_val;
             }
         }
-        
+
         Ok(converted)
     }
-    
+
     /// Sort by multiple columns
     pub fn sort_by_columns(
         &self,
@@ -209,35 +223,37 @@ impl DataOperations {
         if data.len() <= 1 || columns.is_empty() {
             return Ok(());
         }
-        
+
         let header = data.remove(0);
-        
+
         data.sort_by(|a, b| {
             for (col, order) in columns {
                 let val_a = a.get(*col).map(|s| s.as_str()).unwrap_or("");
                 let val_b = b.get(*col).map(|s| s.as_str()).unwrap_or("");
-                
+
                 let cmp = match (val_a.parse::<f64>(), val_b.parse::<f64>()) {
-                    (Ok(num_a), Ok(num_b)) => num_a.partial_cmp(&num_b).unwrap_or(std::cmp::Ordering::Equal),
+                    (Ok(num_a), Ok(num_b)) => num_a
+                        .partial_cmp(&num_b)
+                        .unwrap_or(std::cmp::Ordering::Equal),
                     _ => val_a.cmp(val_b),
                 };
-                
+
                 let cmp = match order {
                     SortOrder::Ascending => cmp,
                     SortOrder::Descending => cmp.reverse(),
                 };
-                
+
                 if cmp != std::cmp::Ordering::Equal {
                     return cmp;
                 }
             }
             std::cmp::Ordering::Equal
         });
-        
+
         data.insert(0, header);
         Ok(())
     }
-    
+
     /// Apply a function to each cell in a column
     pub fn apply_column<F>(&self, data: &mut Vec<Vec<String>>, column: usize, f: F) -> Result<()>
     where
@@ -250,11 +266,17 @@ impl DataOperations {
         }
         Ok(())
     }
-    
+
     /// Clip values to a range
-    pub fn clip(&self, data: &mut Vec<Vec<String>>, column: usize, min: Option<f64>, max: Option<f64>) -> Result<usize> {
+    pub fn clip(
+        &self,
+        data: &mut Vec<Vec<String>>,
+        column: usize,
+        min: Option<f64>,
+        max: Option<f64>,
+    ) -> Result<usize> {
         let mut clipped = 0;
-        
+
         for row in data.iter_mut().skip(1) {
             if let Some(cell) = row.get_mut(column) {
                 if let Ok(val) = cell.parse::<f64>() {
@@ -277,30 +299,31 @@ impl DataOperations {
                 }
             }
         }
-        
+
         Ok(clipped)
     }
-    
+
     /// Normalize column values (0-1 range)
     pub fn normalize(&self, data: &mut Vec<Vec<String>>, column: usize) -> Result<()> {
-        let values: Vec<f64> = data.iter()
+        let values: Vec<f64> = data
+            .iter()
             .skip(1)
             .filter_map(|row| row.get(column))
             .filter_map(|s| s.parse::<f64>().ok())
             .collect();
-        
+
         if values.is_empty() {
             return Ok(());
         }
-        
+
         let min_val = values.iter().cloned().fold(f64::INFINITY, f64::min);
         let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let range = max_val - min_val;
-        
+
         if range == 0.0 {
             return Ok(());
         }
-        
+
         for row in data.iter_mut().skip(1) {
             if let Some(cell) = row.get_mut(column) {
                 if let Ok(val) = cell.parse::<f64>() {
@@ -309,10 +332,10 @@ impl DataOperations {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Parse and reformat date column
     pub fn parse_date(
         &self,
@@ -322,7 +345,7 @@ impl DataOperations {
         to_format: &str,
     ) -> Result<usize> {
         use chrono::NaiveDate;
-        
+
         let mut converted = 0;
         for row in data.iter_mut().skip(1) {
             if let Some(cell) = row.get_mut(column) {
@@ -335,10 +358,10 @@ impl DataOperations {
                 }
             }
         }
-        
+
         Ok(converted)
     }
-    
+
     /// Filter rows by regex pattern
     pub fn regex_filter(
         &self,
@@ -347,9 +370,9 @@ impl DataOperations {
         pattern: &str,
     ) -> Result<Vec<Vec<String>>> {
         let re = regex::Regex::new(pattern)?;
-        
+
         let mut result = vec![data[0].clone()];
-        
+
         for row in data.iter().skip(1) {
             if let Some(cell) = row.get(column) {
                 if re.is_match(cell) {
@@ -357,10 +380,10 @@ impl DataOperations {
                 }
             }
         }
-        
+
         Ok(result)
     }
-    
+
     /// Replace values using regex pattern
     pub fn regex_replace(
         &self,
@@ -370,7 +393,7 @@ impl DataOperations {
         replacement: &str,
     ) -> Result<usize> {
         let re = regex::Regex::new(pattern)?;
-        
+
         let mut replaced = 0;
         for row in data.iter_mut().skip(1) {
             if let Some(cell) = row.get_mut(column) {
@@ -381,10 +404,10 @@ impl DataOperations {
                 }
             }
         }
-        
+
         Ok(replaced)
     }
-    
+
     /// Extract date parts (year, month, day, weekday)
     pub fn extract_date_part(
         &self,
@@ -395,13 +418,13 @@ impl DataOperations {
         date_format: &str,
     ) -> Result<()> {
         use chrono::{Datelike, NaiveDate};
-        
+
         if data.is_empty() {
             return Ok(());
         }
-        
+
         data[0].push(new_col_name.to_string());
-        
+
         for row in data.iter_mut().skip(1) {
             let value = if let Some(cell) = row.get(column) {
                 if let Ok(date) = NaiveDate::parse_from_str(cell, date_format) {
@@ -422,7 +445,7 @@ impl DataOperations {
             };
             row.push(value);
         }
-        
+
         Ok(())
     }
 }

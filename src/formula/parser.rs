@@ -1,7 +1,7 @@
 //! Formula parsing utilities
 
-use anyhow::{Context, Result};
 use super::types::CellRange;
+use anyhow::{Context, Result};
 
 /// Parse cell reference like "A1" to (row, col)
 pub fn parse_cell_reference(cell: &str) -> Result<(u32, u16)> {
@@ -17,9 +17,10 @@ pub fn parse_cell_reference(cell: &str) -> Result<(u32, u16)> {
     }
 
     let col = column_to_index(&col_str)?;
-    let row = row_str.parse::<u32>()
+    let row = row_str
+        .parse::<u32>()
         .with_context(|| format!("Invalid row number in cell reference: {}", cell))?;
-    
+
     // CSV rows are 1-indexed, but we use 0-indexed internally
     Ok((row - 1, col))
 }
@@ -53,15 +54,17 @@ pub fn parse_range(range_str: &str) -> Result<CellRange> {
 
 /// Extract function arguments from formula like "SUM(A1:A10)"
 pub fn extract_function_args(formula: &str) -> Result<String> {
-    let start = formula.find('(')
+    let start = formula
+        .find('(')
         .ok_or_else(|| anyhow::anyhow!("Missing opening parenthesis in formula"))?;
-    let end = formula.rfind(')')
+    let end = formula
+        .rfind(')')
         .ok_or_else(|| anyhow::anyhow!("Missing closing parenthesis in formula"))?;
-    
+
     if end <= start {
         anyhow::bail!("Invalid parentheses in formula");
     }
-    
+
     Ok(formula[start + 1..end].to_string())
 }
 
@@ -70,7 +73,7 @@ pub fn split_args(args: &str) -> Result<Vec<String>> {
     let mut result = Vec::new();
     let mut current = String::new();
     let mut depth = 0;
-    
+
     for ch in args.chars() {
         match ch {
             '(' => {
@@ -88,32 +91,33 @@ pub fn split_args(args: &str) -> Result<Vec<String>> {
             _ => current.push(ch),
         }
     }
-    
+
     if !current.is_empty() {
         result.push(current.trim().to_string());
     }
-    
+
     Ok(result)
 }
 
 /// Get cell value from data
 pub fn get_cell_value(cell_ref: &str, data: &[Vec<String>]) -> Result<f64> {
     let (row, col) = parse_cell_reference(cell_ref)?;
-    
+
     let value = data
         .get(row as usize)
         .and_then(|r| r.get(col as usize))
         .map(|s| s.as_str())
         .unwrap_or("0");
-    
-    value.parse::<f64>()
+
+    value
+        .parse::<f64>()
         .with_context(|| format!("Cannot parse '{}' as number at {}", value, cell_ref))
 }
 
 /// Get cell value as string
 pub fn get_cell_value_str(cell_ref: &str, data: &[Vec<String>]) -> Result<String> {
     let (row, col) = parse_cell_reference(cell_ref)?;
-    
+
     Ok(data
         .get(row as usize)
         .and_then(|r| r.get(col as usize))
@@ -124,7 +128,7 @@ pub fn get_cell_value_str(cell_ref: &str, data: &[Vec<String>]) -> Result<String
 /// Get values from a range
 pub fn get_range_values(range: &CellRange, data: &[Vec<String>]) -> Vec<f64> {
     let mut values = Vec::new();
-    
+
     for row in range.start_row..=range.end_row {
         for col in range.start_col..=range.end_col {
             if let Some(row_data) = data.get(row as usize) {
@@ -136,6 +140,6 @@ pub fn get_range_values(range: &CellRange, data: &[Vec<String>]) -> Vec<f64> {
             }
         }
     }
-    
+
     values
 }

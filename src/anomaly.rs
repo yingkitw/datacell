@@ -41,7 +41,7 @@ impl AnomalyDetector {
     pub fn new(method: AnomalyMethod) -> Self {
         Self { method }
     }
-    
+
     /// Detect anomalies in a column
     pub fn detect(&self, data: &[Vec<String>], column: usize) -> Result<AnomalyResult> {
         if data.is_empty() || column >= data[0].len() {
@@ -51,14 +51,15 @@ impl AnomalyDetector {
                 anomaly_percentage: 0.0,
             });
         }
-        
+
         // Extract numeric values
-        let values: Vec<f64> = data.iter()
+        let values: Vec<f64> = data
+            .iter()
             .skip(1) // Skip header
             .filter_map(|row| row.get(column))
             .filter_map(|v| v.parse::<f64>().ok())
             .collect();
-        
+
         if values.is_empty() {
             return Ok(AnomalyResult {
                 anomalies: Vec::new(),
@@ -66,36 +67,36 @@ impl AnomalyDetector {
                 anomaly_percentage: 0.0,
             });
         }
-        
+
         let anomalies = match self.method {
-            AnomalyMethod::ZScore { threshold } => self.detect_zscore(&values, column, threshold)?,
+            AnomalyMethod::ZScore { threshold } => {
+                self.detect_zscore(&values, column, threshold)?
+            }
             AnomalyMethod::IQR { multiplier } => self.detect_iqr(&values, column, multiplier)?,
             AnomalyMethod::Percentile { lower, upper } => {
                 self.detect_percentile(&values, column, lower, upper)?
             }
         };
-        
+
         let total_anomalies = anomalies.len();
         let anomaly_percentage = (total_anomalies as f64 / values.len() as f64) * 100.0;
-        
+
         Ok(AnomalyResult {
             anomalies,
             total_anomalies,
             anomaly_percentage,
         })
     }
-    
+
     fn detect_zscore(&self, values: &[f64], column: usize, threshold: f64) -> Result<Vec<Anomaly>> {
         let mean = values.iter().sum::<f64>() / values.len() as f64;
-        let variance = values.iter()
-            .map(|v| (v - mean).powi(2))
-            .sum::<f64>() / values.len() as f64;
+        let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
         let std_dev = variance.sqrt();
-        
+
         if std_dev == 0.0 {
             return Ok(Vec::new());
         }
-        
+
         let mut anomalies = Vec::new();
         for (idx, value) in values.iter().enumerate() {
             let z_score = (value - mean).abs() / std_dev;
@@ -109,24 +110,24 @@ impl AnomalyDetector {
                 });
             }
         }
-        
+
         Ok(anomalies)
     }
-    
+
     fn detect_iqr(&self, values: &[f64], column: usize, multiplier: f64) -> Result<Vec<Anomaly>> {
         let mut sorted = values.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let q1_idx = sorted.len() / 4;
         let q3_idx = (sorted.len() * 3) / 4;
-        
+
         let q1 = sorted[q1_idx];
         let q3 = sorted[q3_idx];
         let iqr = q3 - q1;
-        
+
         let lower_bound = q1 - multiplier * iqr;
         let upper_bound = q3 + multiplier * iqr;
-        
+
         let mut anomalies = Vec::new();
         for (idx, value) in values.iter().enumerate() {
             if *value < lower_bound || *value > upper_bound {
@@ -135,7 +136,7 @@ impl AnomalyDetector {
                 } else {
                     format!("Value {:.2} above upper bound {:.2}", value, upper_bound)
                 };
-                
+
                 anomalies.push(Anomaly {
                     row: idx + 1,
                     column: format!("col_{}", column),
@@ -149,20 +150,26 @@ impl AnomalyDetector {
                 });
             }
         }
-        
+
         Ok(anomalies)
     }
-    
-    fn detect_percentile(&self, values: &[f64], column: usize, lower: f64, upper: f64) -> Result<Vec<Anomaly>> {
+
+    fn detect_percentile(
+        &self,
+        values: &[f64],
+        column: usize,
+        lower: f64,
+        upper: f64,
+    ) -> Result<Vec<Anomaly>> {
         let mut sorted = values.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let lower_idx = (sorted.len() as f64 * lower / 100.0) as usize;
         let upper_idx = (sorted.len() as f64 * upper / 100.0) as usize;
-        
+
         let lower_bound = sorted[lower_idx];
         let upper_bound = sorted[upper_idx];
-        
+
         let mut anomalies = Vec::new();
         for (idx, value) in values.iter().enumerate() {
             if *value < lower_bound || *value > upper_bound {
@@ -175,8 +182,7 @@ impl AnomalyDetector {
                 });
             }
         }
-        
+
         Ok(anomalies)
     }
 }
-

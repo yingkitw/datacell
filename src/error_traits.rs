@@ -78,19 +78,19 @@ impl ErrorContextProvider for TraitBasedError {
     fn file(&self) -> Option<&str> {
         self.context.file.as_deref()
     }
-    
+
     fn row(&self) -> Option<usize> {
         self.context.row
     }
-    
+
     fn column(&self) -> Option<usize> {
         self.context.column
     }
-    
+
     fn cell_ref(&self) -> Option<&str> {
         self.context.cell_ref.as_deref()
     }
-    
+
     fn column_name(&self) -> Option<&str> {
         self.context.column_name.as_deref()
     }
@@ -99,22 +99,22 @@ impl ErrorContextProvider for TraitBasedError {
 impl UserFriendlyError for TraitBasedError {
     fn user_message(&self) -> String {
         let mut msg = self.message.clone();
-        
+
         if let Some(file) = &self.context.file {
             msg.push_str(&format!(" (file: {})", file));
         }
-        
+
         if let Some(row) = self.context.row {
             msg.push_str(&format!(" (row: {})", row + 1));
         }
-        
+
         if let Some(col) = self.context.column {
             msg.push_str(&format!(" (column: {})", col + 1));
         }
-        
+
         msg
     }
-    
+
     fn suggestion(&self) -> Option<String> {
         self.suggestion.clone()
     }
@@ -124,7 +124,7 @@ impl RecoverableError for TraitBasedError {
     fn can_recover(&self) -> bool {
         self.recovery.is_some()
     }
-    
+
     fn recovery_action(&self) -> Option<String> {
         self.recovery.clone()
     }
@@ -134,7 +134,7 @@ impl ErrorCategory for TraitBasedError {
     fn category(&self) -> ErrorCategoryType {
         self.category
     }
-    
+
     fn severity(&self) -> ErrorSeverity {
         self.severity
     }
@@ -159,17 +159,17 @@ impl TraitBasedError {
             recovery: None,
         }
     }
-    
+
     pub fn with_context(mut self, context: ErrorContext) -> Self {
         self.context = context;
         self
     }
-    
+
     pub fn with_suggestion(mut self, suggestion: String) -> Self {
         self.suggestion = Some(suggestion);
         self
     }
-    
+
     pub fn with_recovery(mut self, recovery: String) -> Self {
         self.recovery = Some(recovery);
         self
@@ -178,12 +178,19 @@ impl TraitBasedError {
 
 /// Helper to convert anyhow::Error to TraitBasedError
 pub trait ToTraitBasedError {
-    fn to_trait_error(self, category: ErrorCategoryType, severity: ErrorSeverity) -> TraitBasedError;
+    fn to_trait_error(
+        self,
+        category: ErrorCategoryType,
+        severity: ErrorSeverity,
+    ) -> TraitBasedError;
 }
 
 impl ToTraitBasedError for anyhow::Error {
-    fn to_trait_error(self, category: ErrorCategoryType, severity: ErrorSeverity) -> TraitBasedError {
+    fn to_trait_error(
+        self,
+        category: ErrorCategoryType,
+        severity: ErrorSeverity,
+    ) -> TraitBasedError {
         TraitBasedError::new(self.to_string(), category, severity)
     }
 }
-

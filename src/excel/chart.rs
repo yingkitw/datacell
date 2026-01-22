@@ -1,8 +1,8 @@
 use anyhow::Result;
-use rust_xlsxwriter::{Workbook, Chart, ChartType, ChartSolidFill};
+use rust_xlsxwriter::{Chart, ChartSolidFill, ChartType, Workbook};
 
-use super::types::CellStyle;
 use super::reader::ExcelHandler;
+use super::types::CellStyle;
 
 /// Chart type for visualization
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -26,10 +26,13 @@ impl DataChartType {
             "pie" => Ok(DataChartType::Pie),
             "scatter" => Ok(DataChartType::Scatter),
             "doughnut" | "donut" => Ok(DataChartType::Doughnut),
-            _ => anyhow::bail!("Unknown chart type: {}. Use: bar, column, line, area, pie, scatter, doughnut", s),
+            _ => anyhow::bail!(
+                "Unknown chart type: {}. Use: bar, column, line, area, pie, scatter, doughnut",
+                s
+            ),
         }
     }
-    
+
     fn to_xlsx_type(&self) -> ChartType {
         match self {
             DataChartType::Bar => ChartType::Bar,
@@ -85,16 +88,21 @@ impl ExcelHandler {
         if data.is_empty() {
             anyhow::bail!("No data to chart");
         }
-        
+
         let mut workbook = Workbook::new();
         let worksheet = workbook.add_worksheet();
         worksheet.set_name("Data")?;
-        
+
         let header_format = CellStyle::header().to_format();
         for (row_idx, row) in data.iter().enumerate() {
             for (col_idx, cell) in row.iter().enumerate() {
                 if row_idx == 0 {
-                    worksheet.write_string_with_format(row_idx as u32, col_idx as u16, cell, &header_format)?;
+                    worksheet.write_string_with_format(
+                        row_idx as u32,
+                        col_idx as u16,
+                        cell,
+                        &header_format,
+                    )?;
                 } else if let Ok(num) = cell.parse::<f64>() {
                     worksheet.write_number(row_idx as u32, col_idx as u16, num)?;
                 } else {
@@ -102,9 +110,9 @@ impl ExcelHandler {
                 }
             }
         }
-        
+
         let mut chart = Chart::new(chart_config.chart_type.to_xlsx_type());
-        
+
         if let Some(ref title) = chart_config.title {
             chart.title().set_name(title);
         }
@@ -114,54 +122,74 @@ impl ExcelHandler {
         if let Some(ref y_title) = chart_config.y_axis_title {
             chart.y_axis().set_name(y_title);
         }
-        
+
         let num_rows = data.len();
         let header = &data[0];
-        
+
         let default_colors = vec![
-            "4472C4", "ED7D31", "A5A5A5", "FFC000", "5B9BD5", 
-            "70AD47", "264478", "9E480E", "636363", "997300"
+            "4472C4", "ED7D31", "A5A5A5", "FFC000", "5B9BD5", "70AD47", "264478", "9E480E",
+            "636363", "997300",
         ];
-        
+
         for (series_idx, &col_idx) in chart_config.value_columns.iter().enumerate() {
             if col_idx >= header.len() {
                 continue;
             }
-            
-            let series_name = header.get(col_idx).cloned().unwrap_or_else(|| format!("Series {}", series_idx + 1));
+
+            let series_name = header
+                .get(col_idx)
+                .cloned()
+                .unwrap_or_else(|| format!("Series {}", series_idx + 1));
             let cat_col = chart_config.category_column;
-            
-            let color_hex = chart_config.colors
+
+            let color_hex = chart_config
+                .colors
                 .as_ref()
                 .and_then(|c| c.get(series_idx))
                 .map(|s| s.as_str())
-                .unwrap_or_else(|| default_colors.get(series_idx % default_colors.len()).unwrap_or(&"4472C4"));
-            
+                .unwrap_or_else(|| {
+                    default_colors
+                        .get(series_idx % default_colors.len())
+                        .unwrap_or(&"4472C4")
+                });
+
             let series = chart.add_series();
             series
                 .set_name(&series_name)
-                .set_categories(("Data", 1, cat_col as u16, (num_rows - 1) as u32, cat_col as u16))
-                .set_values(("Data", 1, col_idx as u16, (num_rows - 1) as u32, col_idx as u16));
-            
+                .set_categories((
+                    "Data",
+                    1,
+                    cat_col as u16,
+                    (num_rows - 1) as u32,
+                    cat_col as u16,
+                ))
+                .set_values((
+                    "Data",
+                    1,
+                    col_idx as u16,
+                    (num_rows - 1) as u32,
+                    col_idx as u16,
+                ));
+
             if let Ok(color) = CellStyle::parse_hex_color(color_hex) {
                 series.set_format(ChartSolidFill::new().set_color(color));
             }
         }
-        
+
         chart.set_width(chart_config.width);
         chart.set_height(chart_config.height);
-        
+
         if !chart_config.show_legend {
             chart.legend().set_hidden();
         }
-        
+
         let chart_row = (num_rows + 2) as u32;
         worksheet.insert_chart(chart_row, 0, &chart)?;
-        
+
         workbook.save(path)?;
         Ok(())
     }
-    
+
     pub fn add_chart_to_data(
         &self,
         data: &[Vec<String>],

@@ -1,74 +1,80 @@
 //! datacell - A library for reading, writing, and converting spreadsheet files
-//! 
+//!
 //! Supports CSV, Excel (xlsx/xls), ODS, Parquet, and Avro formats with formula evaluation.
 
 #![allow(dead_code)] // Library exports many public APIs not used internally
 
-pub mod excel;
-pub mod csv_handler;
-pub mod converter;
-pub mod formula;
-pub mod mcp;
-pub mod operations;
+pub mod anomaly;
+pub mod api;
+pub mod cli;
 pub mod columnar;
+pub mod common;
 pub mod config;
+pub mod converter;
+pub mod csv_handler;
+pub mod encryption;
 pub mod error;
-pub mod traits;
+pub mod error_traits;
+pub mod excel;
 pub mod format_detector;
-pub mod helpers;
+pub mod formula;
+pub mod geospatial;
 pub mod handler_registry;
+pub mod helpers;
+pub mod lineage;
+pub mod mcp;
 #[cfg(test)]
 pub mod mocks;
-pub mod common;
-pub mod cli;
-pub mod validation;
-pub mod profiling;
-pub mod timeseries;
-pub mod text_analysis;
-pub mod anomaly;
-pub mod geospatial;
-pub mod encryption;
-pub mod workflow;
-pub mod lineage;
-pub mod quality;
-pub mod error_traits;
+pub mod operations;
 pub mod plugins;
-pub mod api;
+pub mod profiling;
+pub mod quality;
 pub mod streaming;
+pub mod text_analysis;
+pub mod timeseries;
+pub mod traits;
+pub mod validation;
+pub mod workflow;
 
-pub use excel::{ExcelHandler, CellStyle, WriteOptions, DataChartType, ChartConfig};
-pub use csv_handler::{CsvHandler, CellRange, StreamingCsvReader, StreamingCsvWriter, CellRangeHelper};
-pub use converter::Converter;
-pub use formula::{FormulaEvaluator, FormulaResult};
-pub use mcp::DatacellMcpServer;
-pub use operations::{DataOperations, SortOrder, ProgressCallback, StderrProgress, NoProgress, JoinType, AggFunc};
-pub use columnar::{ParquetHandler, AvroHandler};
+pub use anomaly::{Anomaly, AnomalyDetector, AnomalyMethod, AnomalyResult};
+pub use api::{ApiConfig, ApiRequest, ApiResponse, ApiServer, CommandHandler};
+pub use columnar::{AvroHandler, ParquetHandler};
 pub use config::Config;
-pub use error::{DatacellError, ErrorKind, ErrorContext, ResultExt};
-pub use traits::{
-    DataReader, DataWriter, FileHandler, FormatDetector, SchemaProvider,
-    StreamingReader, StreamingWriter, CellRangeProvider, DataOperator,
-    SortOperator, FilterOperator, TransformOperator,
-    DataWriteOptions, FilterCondition, TransformOperation,
+pub use converter::Converter;
+pub use csv_handler::{
+    CellRange, CellRangeHelper, CsvHandler, StreamingCsvReader, StreamingCsvWriter,
 };
-pub use format_detector::DefaultFormatDetector;
-pub use handler_registry::HandlerRegistry;
-pub use helpers::{filter_by_range, default_column_names, max_column_count, matches_extension};
-pub use validation::{DataValidator, ValidationConfig, ValidationRule, ValidationResult};
-pub use profiling::{DataProfiler, DataProfile, ColumnProfile};
-pub use timeseries::{TimeSeriesProcessor, TimeSeriesPoint, ResampleInterval, TimeSeriesAgg, RollingWindow};
-pub use text_analysis::{TextAnalyzer, TextStats, SentimentResult, KeywordResult, LanguageResult};
-pub use anomaly::{AnomalyDetector, AnomalyMethod, AnomalyResult, Anomaly};
-pub use geospatial::{GeospatialCalculator, Coordinate};
 pub use encryption::{DataEncryptor, EncryptionAlgorithm};
-pub use workflow::{WorkflowExecutor, WorkflowConfig, WorkflowStep};
-pub use lineage::{LineageTracker, LineageNode};
-pub use quality::{QualityReportGenerator, QualityReport, QualityIssue, IssueSeverity};
+pub use error::{DatacellError, ErrorContext, ErrorKind, ResultExt};
 pub use error_traits::{
-    ErrorContextProvider, UserFriendlyError, RecoverableError, ErrorCategory,
-    TraitBasedError, ErrorCategoryType, ErrorSeverity, ToTraitBasedError,
+    ErrorCategory, ErrorCategoryType, ErrorContextProvider, ErrorSeverity, RecoverableError,
+    ToTraitBasedError, TraitBasedError, UserFriendlyError,
 };
-pub use plugins::{PluginRegistry, PluginFunction, PluginMetadata, FunctionMetadata};
-pub use api::{ApiServer, ApiConfig, ApiRequest, ApiResponse, CommandHandler};
-pub use streaming::{StreamingProcessor, StreamingDataReader, StreamingDataWriter, DataChunk, StreamingChannel};
-
+pub use excel::{CellStyle, ChartConfig, DataChartType, ExcelHandler, WriteOptions};
+pub use format_detector::DefaultFormatDetector;
+pub use formula::{FormulaEvaluator, FormulaResult};
+pub use geospatial::{Coordinate, GeospatialCalculator};
+pub use handler_registry::HandlerRegistry;
+pub use helpers::{default_column_names, filter_by_range, matches_extension, max_column_count};
+pub use lineage::{LineageNode, LineageTracker};
+pub use mcp::DatacellMcpServer;
+pub use operations::{
+    AggFunc, DataOperations, JoinType, NoProgress, ProgressCallback, SortOrder, StderrProgress,
+};
+pub use plugins::{FunctionMetadata, PluginFunction, PluginMetadata, PluginRegistry};
+pub use profiling::{ColumnProfile, DataProfile, DataProfiler};
+pub use quality::{IssueSeverity, QualityIssue, QualityReport, QualityReportGenerator};
+pub use streaming::{
+    DataChunk, StreamingChannel, StreamingDataReader, StreamingDataWriter, StreamingProcessor,
+};
+pub use text_analysis::{KeywordResult, LanguageResult, SentimentResult, TextAnalyzer, TextStats};
+pub use timeseries::{
+    ResampleInterval, RollingWindow, TimeSeriesAgg, TimeSeriesPoint, TimeSeriesProcessor,
+};
+pub use traits::{
+    CellRangeProvider, DataOperator, DataReader, DataWriteOptions, DataWriter, FileHandler,
+    FilterCondition, FilterOperator, FormatDetector, SchemaProvider, SortOperator, StreamingReader,
+    StreamingWriter, TransformOperation, TransformOperator,
+};
+pub use validation::{DataValidator, ValidationConfig, ValidationResult, ValidationRule};
+pub use workflow::{WorkflowConfig, WorkflowExecutor, WorkflowStep};

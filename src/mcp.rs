@@ -1,7 +1,8 @@
 use rmcp::{
+    ServerHandler,
     handler::server::wrapper::Parameters,
     model::{ErrorData as McpError, *},
-    schemars, tool, tool_handler, tool_router, ServerHandler,
+    schemars, tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -107,9 +108,15 @@ impl DatacellMcpServer {
         let result = if request.0.output_path.ends_with(".csv") {
             let handler = CsvHandler::new();
             handler.write_from_csv(&request.0.csv_path, &request.0.output_path)
-        } else if request.0.output_path.ends_with(".xls") || request.0.output_path.ends_with(".xlsx") {
+        } else if request.0.output_path.ends_with(".xls")
+            || request.0.output_path.ends_with(".xlsx")
+        {
             let handler = ExcelHandler::new();
-            handler.write_from_csv(&request.0.csv_path, &request.0.output_path, request.0.sheet.as_deref())
+            handler.write_from_csv(
+                &request.0.csv_path,
+                &request.0.output_path,
+                request.0.sheet.as_deref(),
+            )
         } else {
             return Err(make_error(
                 "Unsupported output format. Supported: .csv, .xls, .xlsx".to_string(),
@@ -131,7 +138,11 @@ impl DatacellMcpServer {
         request: Parameters<ConvertRequest>,
     ) -> Result<CallToolResult, McpError> {
         let converter = Converter::new();
-        match converter.convert(&request.0.input, &request.0.output, request.0.sheet.as_deref()) {
+        match converter.convert(
+            &request.0.input,
+            &request.0.output,
+            request.0.sheet.as_deref(),
+        ) {
             Ok(()) => Ok(CallToolResult::success(vec![Content::text(format!(
                 "Successfully converted {} to {}",
                 request.0.input, request.0.output
@@ -147,7 +158,12 @@ impl DatacellMcpServer {
     ) -> Result<CallToolResult, McpError> {
         let evaluator = FormulaEvaluator::new();
         let result = if request.0.input.ends_with(".csv") {
-            evaluator.apply_to_csv(&request.0.input, &request.0.output, &request.0.formula, &request.0.cell)
+            evaluator.apply_to_csv(
+                &request.0.input,
+                &request.0.output,
+                &request.0.formula,
+                &request.0.cell,
+            )
         } else if request.0.input.ends_with(".xls") || request.0.input.ends_with(".xlsx") {
             evaluator.apply_to_excel(
                 &request.0.input,

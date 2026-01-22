@@ -1,7 +1,7 @@
 //! Format detection for file types
 
-use anyhow::Result;
 use crate::traits::FormatDetector;
+use anyhow::Result;
 
 /// Default format detector implementation
 pub struct DefaultFormatDetector;
@@ -19,14 +19,14 @@ impl FormatDetector for DefaultFormatDetector {
             .map(|s| s.to_lowercase())
             .ok_or_else(|| anyhow::anyhow!("No file extension found in: {}", path))
     }
-    
+
     fn is_supported(&self, format: &str) -> bool {
         matches!(
             format.to_lowercase().as_str(),
             "csv" | "xlsx" | "xls" | "ods" | "parquet" | "avro"
         )
     }
-    
+
     fn supported_formats(&self) -> Vec<String> {
         vec![
             "csv".to_string(),
@@ -38,4 +38,3 @@ impl FormatDetector for DefaultFormatDetector {
         ]
     }
 }
-

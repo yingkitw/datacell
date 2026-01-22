@@ -3,10 +3,10 @@
 //! Provides comprehensive data validation capabilities including
 //! rule-based validation, data quality checks, and reporting.
 
+use crate::common::string;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::common::{validation, string, error};
 
 /// Validation rule types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,7 +21,10 @@ pub enum ValidationRule {
     /// Check if value is one of allowed values
     Enum { values: Vec<String> },
     /// Check if value has specific length
-    Length { min: Option<usize>, max: Option<usize> },
+    Length {
+        min: Option<usize>,
+        max: Option<usize>,
+    },
     /// Check if value is a valid email
     Email,
     /// Check if value is a valid URL
@@ -103,14 +106,14 @@ impl DataValidator {
     pub fn new(config: ValidationConfig) -> Self {
         Self { config }
     }
-    
+
     /// Create a validator from JSON configuration file
     pub fn from_config_file(path: &str) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
         let config: ValidationConfig = serde_json::from_str(&content)?;
         Ok(Self::new(config))
     }
-    
+
     /// Validate data rows
     pub fn validate(&self, data: &[Vec<String>]) -> Result<ValidationResult> {
         if data.is_empty() {
@@ -128,15 +131,15 @@ impl DataValidator {
                 },
             });
         }
-        
+
         let header = &data[0];
         let mut errors = Vec::new();
         let warnings = Vec::new();
         let mut valid_rows = 0;
-        
+
         for (row_idx, row) in data.iter().enumerate().skip(1) {
             let mut row_valid = true;
-            
+
             for (col_idx, cell_value) in row.iter().enumerate() {
                 if let Some(column_name) = header.get(col_idx) {
                     if let Some(rules) = self.config.rules.get(column_name) {
@@ -153,11 +156,11 @@ impl DataValidator {
                                     };
                                     errors.push(error);
                                     row_valid = false;
-                                    
+
                                     if self.config.stop_on_first_error {
                                         break;
                                     }
-                                    
+
                                     if let Some(max) = self.config.max_errors {
                                         if errors.len() >= max {
                                             break;
@@ -169,22 +172,22 @@ impl DataValidator {
                     }
                 }
             }
-            
+
             if row_valid {
                 valid_rows += 1;
             }
-            
+
             if self.config.stop_on_first_error && !errors.is_empty() {
                 break;
             }
-            
+
             if let Some(max) = self.config.max_errors {
                 if errors.len() >= max {
                     break;
                 }
             }
         }
-        
+
         let total_rows = data.len() - 1; // Exclude header
         let invalid_rows = total_rows - valid_rows;
         let is_valid = if self.config.strict_mode {
@@ -192,10 +195,10 @@ impl DataValidator {
         } else {
             errors.is_empty()
         };
-        
+
         let total_errors = errors.len();
         let total_warnings = warnings.len();
-        
+
         Ok(ValidationResult {
             is_valid,
             errors,
@@ -210,7 +213,7 @@ impl DataValidator {
             },
         })
     }
-    
+
     /// Validate a single value against a rule
     fn validate_value(&self, value: &str, rule: &ValidationRule) -> Result<()> {
         match rule {
@@ -229,12 +232,20 @@ impl DataValidator {
                 if let Some(num) = string::to_number(value) {
                     if let Some(min_val) = min {
                         if num < *min_val {
-                            return Err(anyhow::anyhow!("Value {} is below minimum {}", num, min_val));
+                            return Err(anyhow::anyhow!(
+                                "Value {} is below minimum {}",
+                                num,
+                                min_val
+                            ));
                         }
                     }
                     if let Some(max_val) = max {
                         if num > *max_val {
-                            return Err(anyhow::anyhow!("Value {} is above maximum {}", num, max_val));
+                            return Err(anyhow::anyhow!(
+                                "Value {} is above maximum {}",
+                                num,
+                                max_val
+                            ));
                         }
                     }
                 } else {
@@ -254,27 +265,32 @@ impl DataValidator {
                 let len = value.len();
                 if let Some(min_len) = min {
                     if len < *min_len {
-                        return Err(anyhow::anyhow!("Length {} is below minimum {}", len, min_len));
+                        return Err(anyhow::anyhow!(
+                            "Length {} is below minimum {}",
+                            len,
+                            min_len
+                        ));
                     }
                 }
                 if let Some(max_len) = max {
                     if len > *max_len {
-                        return Err(anyhow::anyhow!("Length {} is above maximum {}", len, max_len));
+                        return Err(anyhow::anyhow!(
+                            "Length {} is above maximum {}",
+                            len,
+                            max_len
+                        ));
                     }
                 }
             }
             ValidationRule::Email => {
-                let email_regex = regex::Regex::new(
-                    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-                )?;
+                let email_regex =
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?;
                 if !email_regex.is_match(value) {
                     return Err(anyhow::anyhow!("Invalid email format"));
                 }
             }
             ValidationRule::Url => {
-                let url_regex = regex::Regex::new(
-                    r"^https?://[^\s/$.?#].[^\s]*$",
-                )?;
+                let url_regex = regex::Regex::new(r"^https?://[^\s/$.?#].[^\s]*$")?;
                 if !url_regex.is_match(value) {
                     return Err(anyhow::anyhow!("Invalid URL format"));
                 }
@@ -296,16 +312,16 @@ impl DataValidator {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Generate validation report
     pub fn generate_report(&self, result: &ValidationResult) -> String {
         let mut report = String::new();
-        
+
         report.push_str("# Data Validation Report\n\n");
-        
+
         // Summary
         report.push_str("## Summary\n\n");
         report.push_str(&format!(
@@ -322,9 +338,13 @@ impl DataValidator {
             result.stats.total_errors,
             result.stats.total_warnings,
             result.stats.columns_validated,
-            if result.is_valid { "✅ PASSED" } else { "❌ FAILED" }
+            if result.is_valid {
+                "✅ PASSED"
+            } else {
+                "❌ FAILED"
+            }
         ));
-        
+
         // Errors
         if !result.errors.is_empty() {
             report.push_str("## Errors\n\n");
@@ -339,7 +359,7 @@ impl DataValidator {
             }
             report.push('\n');
         }
-        
+
         // Warnings
         if !result.warnings.is_empty() {
             report.push_str("## Warnings\n\n");
@@ -354,10 +374,10 @@ impl DataValidator {
             }
             report.push('\n');
         }
-        
+
         report
     }
-    
+
     /// Save validation result to file
     pub fn save_result(&self, result: &ValidationResult, path: &str) -> Result<()> {
         let json = serde_json::to_string_pretty(result)?;
@@ -369,13 +389,13 @@ impl DataValidator {
 /// Create a sample validation configuration
 pub fn create_sample_config() -> ValidationConfig {
     let mut rules = HashMap::new();
-    
+
     // Email validation
     rules.insert(
         "email".to_string(),
         vec![ValidationRule::Email, ValidationRule::NotNull],
     );
-    
+
     // Age validation
     rules.insert(
         "age".to_string(),
@@ -387,7 +407,7 @@ pub fn create_sample_config() -> ValidationConfig {
             },
         ],
     );
-    
+
     // Name validation
     rules.insert(
         "name".to_string(),
@@ -399,7 +419,7 @@ pub fn create_sample_config() -> ValidationConfig {
             },
         ],
     );
-    
+
     // Status validation
     rules.insert(
         "status".to_string(),
@@ -411,7 +431,7 @@ pub fn create_sample_config() -> ValidationConfig {
             ],
         }],
     );
-    
+
     ValidationConfig {
         rules,
         strict_mode: false,
@@ -423,32 +443,60 @@ pub fn create_sample_config() -> ValidationConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_validation_not_null() {
         let validator = DataValidator::new(ValidationConfig::default());
-        
+
         // Test valid value
-        assert!(validator.validate_value("test", &ValidationRule::NotNull).is_ok());
-        
+        assert!(
+            validator
+                .validate_value("test", &ValidationRule::NotNull)
+                .is_ok()
+        );
+
         // Test invalid value
-        assert!(validator.validate_value("", &ValidationRule::NotNull).is_err());
-        assert!(validator.validate_value("   ", &ValidationRule::NotNull).is_err());
+        assert!(
+            validator
+                .validate_value("", &ValidationRule::NotNull)
+                .is_err()
+        );
+        assert!(
+            validator
+                .validate_value("   ", &ValidationRule::NotNull)
+                .is_err()
+        );
     }
-    
+
     #[test]
     fn test_validation_numeric() {
         let validator = DataValidator::new(ValidationConfig::default());
-        
+
         // Test valid numbers
-        assert!(validator.validate_value("123", &ValidationRule::Numeric).is_ok());
-        assert!(validator.validate_value("-45.67", &ValidationRule::Numeric).is_ok());
-        
+        assert!(
+            validator
+                .validate_value("123", &ValidationRule::Numeric)
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate_value("-45.67", &ValidationRule::Numeric)
+                .is_ok()
+        );
+
         // Test invalid numbers
-        assert!(validator.validate_value("abc", &ValidationRule::Numeric).is_err());
-        assert!(validator.validate_value("", &ValidationRule::Numeric).is_err());
+        assert!(
+            validator
+                .validate_value("abc", &ValidationRule::Numeric)
+                .is_err()
+        );
+        assert!(
+            validator
+                .validate_value("", &ValidationRule::Numeric)
+                .is_err()
+        );
     }
-    
+
     #[test]
     fn test_validation_range() {
         let validator = DataValidator::new(ValidationConfig::default());
@@ -456,28 +504,28 @@ mod tests {
             min: Some(0.0),
             max: Some(100.0),
         };
-        
+
         // Test valid range
         assert!(validator.validate_value("50", &rule).is_ok());
         assert!(validator.validate_value("0", &rule).is_ok());
         assert!(validator.validate_value("100", &rule).is_ok());
-        
+
         // Test invalid range
         assert!(validator.validate_value("-1", &rule).is_err());
         assert!(validator.validate_value("101", &rule).is_err());
     }
-    
+
     #[test]
     fn test_validation_enum() {
         let validator = DataValidator::new(ValidationConfig::default());
         let rule = ValidationRule::Enum {
             values: vec!["red".to_string(), "green".to_string(), "blue".to_string()],
         };
-        
+
         // Test valid enum values
         assert!(validator.validate_value("red", &rule).is_ok());
         assert!(validator.validate_value("green", &rule).is_ok());
-        
+
         // Test invalid enum value
         assert!(validator.validate_value("yellow", &rule).is_err());
     }

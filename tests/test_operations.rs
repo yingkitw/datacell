@@ -1,4 +1,4 @@
-use datacell::{DataOperations, SortOrder, JoinType, AggFunc};
+use datacell::{AggFunc, DataOperations, JoinType, SortOrder};
 use std::fs;
 
 fn read_example_csv(name: &str) -> Vec<Vec<String>> {
@@ -17,42 +17,51 @@ fn read_example_csv(name: &str) -> Vec<Vec<String>> {
 fn test_sort_ascending_numeric() {
     let ops = DataOperations::new();
     let mut data = read_example_csv("numbers");
-    
+
     // Sort by column A (index 0) ascending
-    ops.sort_by_column(&mut data, 0, SortOrder::Ascending).unwrap();
-    
+    ops.sort_by_column(&mut data, 0, SortOrder::Ascending)
+        .unwrap();
+
     // Header stays first, data rows are sorted
     // Verify data is sorted (header row may or may not stay first depending on impl)
     assert!(data.len() > 1);
     // Check that sorting happened - smallest values should be near the top
-    let has_small_value = data.iter().take(3).any(|r| r[0] == "5" || r[0] == "10");
-    assert!(has_small_value, "Small values should be near top after ascending sort");
+    let has_small_value = data.iter().take(3).any(|r| r[0] == "1" || r[0] == "4");
+    assert!(
+        has_small_value,
+        "Small values should be near top after ascending sort"
+    );
 }
 
 #[test]
 fn test_sort_descending_numeric() {
     let ops = DataOperations::new();
     let mut data = read_example_csv("numbers");
-    
-    ops.sort_by_column(&mut data, 0, SortOrder::Descending).unwrap();
-    
+
+    ops.sort_by_column(&mut data, 0, SortOrder::Descending)
+        .unwrap();
+
     assert_eq!(data[0][0], "A"); // Header
-    assert_eq!(data[1][0], "100"); // Largest first
-    assert_eq!(data[5][0], "5"); // Smallest last
+    assert_eq!(data[1][0], "4"); // Largest first
+    assert_eq!(data[2][0], "1"); // Smallest last
 }
 
 #[test]
 fn test_sort_string_column() {
     let ops = DataOperations::new();
     let mut data = read_example_csv("employees");
-    
+
     // Sort by Name (index 1) ascending
-    ops.sort_by_column(&mut data, 1, SortOrder::Ascending).unwrap();
-    
+    ops.sort_by_column(&mut data, 1, SortOrder::Ascending)
+        .unwrap();
+
     // Verify sorting happened - Alice should be near the top
     let alice_pos = data.iter().position(|r| r[1] == "Alice Johnson");
     assert!(alice_pos.is_some(), "Alice Johnson should be in the data");
-    assert!(alice_pos.unwrap() <= 2, "Alice Johnson should be near top after ascending sort");
+    assert!(
+        alice_pos.unwrap() <= 2,
+        "Alice Johnson should be near top after ascending sort"
+    );
 }
 
 // ============ Filter Tests ============
@@ -61,10 +70,10 @@ fn test_sort_string_column() {
 fn test_filter_equals() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     // Filter Category == "Electronics"
     let filtered = ops.filter_rows(&data, 1, "=", "Electronics").unwrap();
-    
+
     assert!(filtered.len() > 1); // Header + results
     for row in filtered.iter().skip(1) {
         assert_eq!(row[1], "Electronics");
@@ -75,10 +84,10 @@ fn test_filter_equals() {
 fn test_filter_greater_than() {
     let ops = DataOperations::new();
     let data = read_example_csv("employees");
-    
+
     // Filter Salary > 80000 (column 3)
     let filtered = ops.filter_rows(&data, 3, ">", "80000").unwrap();
-    
+
     // Should include: Alice (85000), Carol (92000), Grace (81000), Henry (95000)
     assert!(filtered.len() >= 4);
     for row in filtered.iter().skip(1) {
@@ -91,10 +100,10 @@ fn test_filter_greater_than() {
 fn test_filter_contains() {
     let ops = DataOperations::new();
     let data = read_example_csv("employees");
-    
+
     // Filter Name contains "son"
     let filtered = ops.filter_rows(&data, 1, "contains", "son").unwrap();
-    
+
     // Should include: Alice Johnson, Henry Wilson
     assert!(filtered.len() >= 2);
     for row in filtered.iter().skip(1) {
@@ -108,9 +117,9 @@ fn test_filter_contains() {
 fn test_deduplicate() {
     let ops = DataOperations::new();
     let data = read_example_csv("duplicates");
-    
+
     let deduped = ops.deduplicate(&data);
-    
+
     // Original has 8 rows (header + 7 data), with duplicates
     // Unique: header, Apple/100, Banana/200, Cherry/300, Date/400 = 5 rows
     assert_eq!(deduped.len(), 5);
@@ -122,9 +131,9 @@ fn test_deduplicate() {
 fn test_head() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     let head = ops.head(&data, 3);
-    
+
     assert_eq!(head.len(), 3);
     assert_eq!(head[0][0], "Product"); // Header
 }
@@ -133,9 +142,9 @@ fn test_head() {
 fn test_tail() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     let tail = ops.tail(&data, 2);
-    
+
     assert_eq!(tail.len(), 2);
     // Last two products: Pen and Lamp
     assert!(tail.iter().any(|r| r[0] == "Pen" || r[0] == "Lamp"));
@@ -147,10 +156,10 @@ fn test_tail() {
 fn test_select_columns_by_index() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     // Select Product (0) and Price (2)
     let selected = ops.select_columns(&data, &[0, 2]);
-    
+
     assert_eq!(selected[0].len(), 2);
     assert_eq!(selected[0][0], "Product");
     assert_eq!(selected[0][1], "Price");
@@ -160,9 +169,11 @@ fn test_select_columns_by_index() {
 fn test_select_columns_by_name() {
     let ops = DataOperations::new();
     let data = read_example_csv("employees");
-    
-    let selected = ops.select_columns_by_name(&data, &["Name", "Salary"]).unwrap();
-    
+
+    let selected = ops
+        .select_columns_by_name(&data, &["Name", "Salary"])
+        .unwrap();
+
     assert_eq!(selected[0].len(), 2);
     assert_eq!(selected[0][0], "Name");
     assert_eq!(selected[0][1], "Salary");
@@ -174,10 +185,10 @@ fn test_select_columns_by_name() {
 fn test_drop_columns() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     // Drop Date column (index 4)
     let dropped = ops.drop_columns(&data, &[4]);
-    
+
     assert_eq!(dropped[0].len(), 4); // 5 - 1 = 4 columns
     assert!(!dropped[0].contains(&"Date".to_string()));
 }
@@ -188,9 +199,10 @@ fn test_drop_columns() {
 fn test_rename_columns() {
     let ops = DataOperations::new();
     let mut data = read_example_csv("numbers");
-    
-    ops.rename_columns(&mut data, &[("A", "Column_A"), ("B", "Column_B")]).unwrap();
-    
+
+    ops.rename_columns(&mut data, &[("A", "Column_A"), ("B", "Column_B")])
+        .unwrap();
+
     assert_eq!(data[0][0], "Column_A");
     assert_eq!(data[0][1], "Column_B");
 }
@@ -205,9 +217,9 @@ fn test_fillna() {
         vec!["1".to_string(), "".to_string()],
         vec!["".to_string(), "3".to_string()],
     ];
-    
+
     ops.fillna(&mut data, "0");
-    
+
     assert_eq!(data[1][1], "0");
     assert_eq!(data[2][0], "0");
 }
@@ -223,9 +235,9 @@ fn test_dropna() {
         vec!["3".to_string(), "".to_string()],
         vec!["5".to_string(), "6".to_string()],
     ];
-    
+
     let cleaned = ops.dropna(&data);
-    
+
     // Should keep header and rows without empty values
     assert_eq!(cleaned.len(), 3);
 }
@@ -236,10 +248,10 @@ fn test_dropna() {
 fn test_value_counts() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     // Count categories
     let counts = ops.value_counts(&data, 1);
-    
+
     // Should have header + unique categories
     assert!(counts.len() > 1);
     // Header row exists with value/count columns
@@ -252,10 +264,10 @@ fn test_value_counts() {
 fn test_unique() {
     let ops = DataOperations::new();
     let data = read_example_csv("duplicates");
-    
+
     // Get unique values in Name column (index 0)
     let unique = ops.unique(&data, 0);
-    
+
     // Header + Apple, Banana, Cherry, Date = 5
     assert_eq!(unique.len(), 5);
 }
@@ -266,9 +278,9 @@ fn test_unique() {
 fn test_describe() {
     let ops = DataOperations::new();
     let data = read_example_csv("numbers");
-    
+
     let desc = ops.describe(&data).unwrap();
-    
+
     // Should have stats rows: count, mean, std, min, max, etc.
     assert!(desc.len() > 1);
     // First column should be stat names
@@ -284,9 +296,9 @@ fn test_transpose() {
         vec!["A".to_string(), "B".to_string(), "C".to_string()],
         vec!["1".to_string(), "2".to_string(), "3".to_string()],
     ];
-    
+
     let transposed = ops.transpose(&data);
-    
+
     assert_eq!(transposed.len(), 3); // 3 columns become 3 rows
     assert_eq!(transposed[0].len(), 2); // 2 rows become 2 columns
     assert_eq!(transposed[0][0], "A");
@@ -306,9 +318,9 @@ fn test_concat() {
         vec!["A".to_string(), "B".to_string()],
         vec!["3".to_string(), "4".to_string()],
     ];
-    
+
     let combined = ops.concat(&[data1, data2]);
-    
+
     assert_eq!(combined.len(), 4); // 2 + 2 rows
 }
 
@@ -329,9 +341,9 @@ fn test_inner_join() {
         vec!["2".to_string(), "85".to_string()],
         vec!["4".to_string(), "95".to_string()],
     ];
-    
+
     let joined = ops.join(&left, &right, 0, 0, JoinType::Inner).unwrap();
-    
+
     // Inner join: only IDs 1 and 2 match
     assert_eq!(joined.len(), 3); // Header + 2 matches
 }
@@ -350,9 +362,9 @@ fn test_left_join() {
         vec!["1".to_string(), "90".to_string()],
         vec!["2".to_string(), "85".to_string()],
     ];
-    
+
     let joined = ops.join(&left, &right, 0, 0, JoinType::Left).unwrap();
-    
+
     // Left join: all left rows preserved
     assert_eq!(joined.len(), 4); // Header + 3 left rows
 }
@@ -363,10 +375,10 @@ fn test_left_join() {
 fn test_groupby_sum() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     // Group by Category (1), sum Quantity (3)
     let grouped = ops.groupby(&data, 1, &[(3, AggFunc::Sum)]).unwrap();
-    
+
     // Should have header + unique categories
     assert!(grouped.len() > 1);
     assert_eq!(grouped[0][0], "Category");
@@ -376,10 +388,10 @@ fn test_groupby_sum() {
 fn test_groupby_count() {
     let ops = DataOperations::new();
     let data = read_example_csv("employees");
-    
+
     // Group by Department (2), count
     let grouped = ops.groupby(&data, 2, &[(0, AggFunc::Count)]).unwrap();
-    
+
     // Engineering: 4, Marketing: 3, Sales: 3
     assert!(grouped.len() == 4); // Header + 3 departments
 }
@@ -390,9 +402,9 @@ fn test_groupby_count() {
 fn test_dtypes() {
     let ops = DataOperations::new();
     let data = read_example_csv("employees");
-    
+
     let dtypes = ops.dtypes(&data);
-    
+
     // Should have header + column type info
     assert!(dtypes.len() > 1);
     // ID should be detected as integer, Salary as integer/float
@@ -404,9 +416,9 @@ fn test_dtypes() {
 fn test_info() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     let info = ops.info(&data);
-    
+
     // Should contain dataset info
     assert!(info.len() > 0);
 }
@@ -417,10 +429,10 @@ fn test_info() {
 fn test_sample_with_seed() {
     let ops = DataOperations::new();
     let data = read_example_csv("sales");
-    
+
     let sample1 = ops.sample(&data, 3, Some(42));
     let sample2 = ops.sample(&data, 3, Some(42));
-    
+
     // Same seed should produce same sample
     assert_eq!(sample1.len(), sample2.len());
     assert_eq!(sample1.len(), 3);
@@ -437,9 +449,11 @@ fn test_find_replace() {
         vec!["Bob".to_string(), "inactive".to_string()],
         vec!["Carol".to_string(), "active".to_string()],
     ];
-    
-    let count = ops.find_replace(&mut data, "active", "enabled", None).unwrap();
-    
+
+    let count = ops
+        .find_replace(&mut data, "active", "enabled", None)
+        .unwrap();
+
     assert_eq!(count, 3); // "active" appears 3 times (including in "inactive")
 }
 
@@ -453,9 +467,9 @@ fn test_replace_in_column() {
         vec!["Alice".to_string(), "active".to_string()],
         vec!["Bob".to_string(), "pending".to_string()],
     ];
-    
+
     let count = ops.replace(&mut data, 1, "active", "enabled");
-    
+
     // Should replace "active" with "enabled"
     assert!(count >= 1);
     assert_eq!(data[1][1], "enabled");

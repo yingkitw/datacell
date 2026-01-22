@@ -21,7 +21,11 @@ impl StderrProgress {
 impl ProgressCallback for StderrProgress {
     fn on_progress(&mut self, current: usize, total: Option<usize>, message: &str) {
         if let Some(total) = total {
-            let percent = if total > 0 { (current * 100) / total } else { 0 };
+            let percent = if total > 0 {
+                (current * 100) / total
+            } else {
+                0
+            };
             if percent != self.last_percent {
                 eprintln!("\r{}: {}% ({}/{})", message, percent, current, total);
                 self.last_percent = percent;
@@ -85,10 +89,13 @@ impl AggFunc {
             "mean" | "avg" | "average" => Ok(AggFunc::Mean),
             "min" => Ok(AggFunc::Min),
             "max" => Ok(AggFunc::Max),
-            _ => anyhow::bail!("Unknown aggregation: {}. Use: sum, count, mean, min, max", s),
+            _ => anyhow::bail!(
+                "Unknown aggregation: {}. Use: sum, count, mean, min, max",
+                s
+            ),
         }
     }
-    
+
     pub fn name(&self) -> &'static str {
         match self {
             AggFunc::Sum => "sum",
@@ -98,7 +105,7 @@ impl AggFunc {
             AggFunc::Max => "max",
         }
     }
-    
+
     pub fn apply(&self, values: &[f64]) -> f64 {
         if values.is_empty() {
             return 0.0;

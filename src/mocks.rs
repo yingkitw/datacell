@@ -1,12 +1,12 @@
 //! Mock implementations of traits for testing
 
-use anyhow::Result;
-use crate::traits::{
-    DataReader, DataWriter, FileHandler, SchemaProvider, DataWriteOptions,
-    CellRangeProvider, SortOperator, FilterOperator, TransformOperator, DataOperator,
-    FilterCondition, TransformOperation,
-};
 use crate::csv_handler::{CellRange, CellRangeHelper};
+use crate::traits::{
+    DataOperator, DataReader, DataWriteOptions, DataWriter, FileHandler,
+    FilterCondition, FilterOperator, SortOperator, TransformOperation,
+    TransformOperator,
+};
+use anyhow::Result;
 
 /// Mock data reader for testing
 pub struct MockDataReader {
@@ -23,21 +23,21 @@ impl DataReader for MockDataReader {
     fn read(&self, _path: &str) -> Result<Vec<Vec<String>>> {
         Ok(self.data.clone())
     }
-    
+
     fn read_with_headers(&self, _path: &str) -> Result<Vec<Vec<String>>> {
         Ok(self.data.clone())
     }
-    
+
     fn read_range(&self, _path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
         use crate::helpers::filter_by_range;
         Ok(filter_by_range(&self.data, range))
     }
-    
+
     fn read_as_json(&self, _path: &str) -> Result<String> {
         serde_json::to_string_pretty(&self.data)
             .map_err(|e| anyhow::anyhow!("JSON serialization error: {}", e))
     }
-    
+
     fn supports_format(&self, path: &str) -> bool {
         path.ends_with(".mock")
     }
@@ -54,7 +54,7 @@ impl MockDataWriter {
             written_data: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
-    
+
     pub fn get_written(&self) -> Vec<Vec<String>> {
         self.written_data.lock().unwrap().clone()
     }
@@ -65,7 +65,7 @@ impl DataWriter for MockDataWriter {
         *self.written_data.lock().unwrap() = data.to_vec();
         Ok(())
     }
-    
+
     fn write_range(
         &self,
         _path: &str,
@@ -76,12 +76,12 @@ impl DataWriter for MockDataWriter {
         *self.written_data.lock().unwrap() = data.to_vec();
         Ok(())
     }
-    
+
     fn append(&self, _path: &str, data: &[Vec<String>]) -> Result<()> {
         self.written_data.lock().unwrap().extend_from_slice(data);
         Ok(())
     }
-    
+
     fn supports_format(&self, path: &str) -> bool {
         path.ends_with(".mock")
     }
@@ -100,7 +100,7 @@ impl MockFileHandler {
             writer: MockDataWriter::new(),
         }
     }
-    
+
     pub fn get_written(&self) -> Vec<Vec<String>> {
         self.writer.get_written()
     }
@@ -110,7 +110,7 @@ impl FileHandler for MockFileHandler {
     fn format_name(&self) -> &'static str {
         "mock"
     }
-    
+
     fn supported_extensions(&self) -> &'static [&'static str] {
         &["mock"]
     }
@@ -120,19 +120,19 @@ impl DataReader for MockFileHandler {
     fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
         self.reader.read(path)
     }
-    
+
     fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
         self.reader.read_with_headers(path)
     }
-    
+
     fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
         self.reader.read_range(path, range)
     }
-    
+
     fn read_as_json(&self, path: &str) -> Result<String> {
         self.reader.read_as_json(path)
     }
-    
+
     fn supports_format(&self, path: &str) -> bool {
         self.reader.supports_format(path)
     }
@@ -142,7 +142,7 @@ impl DataWriter for MockFileHandler {
     fn write(&self, path: &str, data: &[Vec<String>], options: DataWriteOptions) -> Result<()> {
         self.writer.write(path, data, options)
     }
-    
+
     fn write_range(
         &self,
         path: &str,
@@ -152,11 +152,11 @@ impl DataWriter for MockFileHandler {
     ) -> Result<()> {
         self.writer.write_range(path, data, start_row, start_col)
     }
-    
+
     fn append(&self, path: &str, data: &[Vec<String>]) -> Result<()> {
         self.writer.append(path, data)
     }
-    
+
     fn supports_format(&self, path: &str) -> bool {
         self.writer.supports_format(path)
     }
@@ -166,12 +166,7 @@ impl DataWriter for MockFileHandler {
 pub struct MockSortOperator;
 
 impl SortOperator for MockSortOperator {
-    fn sort(
-        &self,
-        data: &mut Vec<Vec<String>>,
-        column: usize,
-        ascending: bool,
-    ) -> Result<()> {
+    fn sort(&self, data: &mut Vec<Vec<String>>, column: usize, ascending: bool) -> Result<()> {
         data.sort_by(|a, b| {
             let val_a = a.get(column).map(|s| s.as_str()).unwrap_or("");
             let val_b = b.get(column).map(|s| s.as_str()).unwrap_or("");
@@ -213,11 +208,7 @@ impl FilterOperator for MockFilterOperator {
 pub struct MockTransformOperator;
 
 impl TransformOperator for MockTransformOperator {
-    fn transform(
-        &self,
-        data: &mut Vec<Vec<String>>,
-        operation: TransformOperation,
-    ) -> Result<()> {
+    fn transform(&self, data: &mut Vec<Vec<String>>, operation: TransformOperation) -> Result<()> {
         match operation {
             TransformOperation::RenameColumn { from, to } => {
                 if let Some(row) = data.first_mut() {
@@ -247,12 +238,7 @@ impl TransformOperator for MockTransformOperator {
 pub struct MockDataOperator;
 
 impl SortOperator for MockDataOperator {
-    fn sort(
-        &self,
-        data: &mut Vec<Vec<String>>,
-        column: usize,
-        ascending: bool,
-    ) -> Result<()> {
+    fn sort(&self, data: &mut Vec<Vec<String>>, column: usize, ascending: bool) -> Result<()> {
         MockSortOperator.sort(data, column, ascending)
     }
 }
@@ -269,11 +255,7 @@ impl FilterOperator for MockDataOperator {
 }
 
 impl TransformOperator for MockDataOperator {
-    fn transform(
-        &self,
-        data: &mut Vec<Vec<String>>,
-        operation: TransformOperation,
-    ) -> Result<()> {
+    fn transform(&self, data: &mut Vec<Vec<String>>, operation: TransformOperation) -> Result<()> {
         MockTransformOperator.transform(data, operation)
     }
 }
@@ -282,4 +264,3 @@ impl DataOperator for MockDataOperator {}
 
 /// Re-export CellRangeHelper as mock cell range provider
 pub type MockCellRangeProvider = CellRangeHelper;
-

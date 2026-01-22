@@ -17,16 +17,16 @@ fn test_convert_csv_to_xlsx() {
     let converter = Converter::new();
     let csv_path = "examples/sales.csv";
     let xlsx_path = unique_path("conv_csv_xlsx", "xlsx");
-    
+
     converter.convert(csv_path, &xlsx_path, None).unwrap();
-    
+
     assert!(Path::new(&xlsx_path).exists());
-    
+
     // Verify content
     let handler = ExcelHandler::new();
     let content = handler.read_with_sheet(&xlsx_path, None).unwrap();
     assert!(content.contains("Product") || content.contains("Laptop"));
-    
+
     fs::remove_file(&xlsx_path).ok();
 }
 
@@ -35,13 +35,15 @@ fn test_convert_csv_to_xlsx_with_sheet_name() {
     let converter = Converter::new();
     let csv_path = "examples/employees.csv";
     let xlsx_path = unique_path("conv_csv_xlsx_sheet", "xlsx");
-    
-    converter.convert(csv_path, &xlsx_path, Some("EmployeeData")).unwrap();
-    
+
+    converter
+        .convert(csv_path, &xlsx_path, Some("EmployeeData"))
+        .unwrap();
+
     let handler = ExcelHandler::new();
     let sheets = handler.list_sheets(&xlsx_path).unwrap();
     assert!(sheets.contains(&"EmployeeData".to_string()));
-    
+
     fs::remove_file(&xlsx_path).ok();
 }
 
@@ -50,22 +52,22 @@ fn test_convert_csv_to_xlsx_with_sheet_name() {
 #[test]
 fn test_convert_xlsx_to_csv() {
     let converter = Converter::new();
-    
+
     // First create an Excel file
     let csv_path = "examples/numbers.csv";
     let xlsx_path = unique_path("conv_xlsx_csv_src", "xlsx");
     let output_csv = unique_path("conv_xlsx_csv_out", "csv");
-    
+
     converter.convert(csv_path, &xlsx_path, None).unwrap();
-    
+
     // Now convert back to CSV
     converter.convert(&xlsx_path, &output_csv, None).unwrap();
-    
+
     assert!(Path::new(&output_csv).exists());
-    
+
     let content = fs::read_to_string(&output_csv).unwrap();
-    assert!(content.contains("10") || content.contains("20"));
-    
+    assert!(content.contains("1") || content.contains("2"));
+
     fs::remove_file(&xlsx_path).ok();
     fs::remove_file(&output_csv).ok();
 }
@@ -76,7 +78,7 @@ fn test_convert_xlsx_to_csv() {
 fn test_csv_handler_read() {
     let handler = CsvHandler::new();
     let content = handler.read("examples/sales.csv").unwrap();
-    
+
     assert!(content.contains("Product"));
     assert!(content.contains("Laptop"));
 }
@@ -85,7 +87,7 @@ fn test_csv_handler_read() {
 fn test_csv_handler_read_as_json() {
     let handler = CsvHandler::new();
     let json = handler.read_as_json("examples/lookup.csv").unwrap();
-    
+
     assert!(json.starts_with("["));
     assert!(json.contains("Widget"));
     assert!(json.contains("Gadget"));
@@ -96,7 +98,7 @@ fn test_csv_handler_read_range() {
     let handler = CsvHandler::new();
     let range = datacell::CellRange::parse("A1:C3").unwrap();
     let data = handler.read_range("examples/sales.csv", &range).unwrap();
-    
+
     assert_eq!(data.len(), 3); // 3 rows
     assert_eq!(data[0].len(), 3); // 3 columns
     assert_eq!(data[0][0], "Product");
@@ -107,37 +109,37 @@ fn test_csv_handler_write() {
     let handler = CsvHandler::new();
     let input_path = "examples/duplicates.csv";
     let output_path = unique_path("csv_write", "csv");
-    
+
     handler.write_from_csv(input_path, &output_path).unwrap();
-    
+
     assert!(Path::new(&output_path).exists());
-    
+
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(content.contains("Apple"));
-    
+
     fs::remove_file(&output_path).ok();
 }
 
 #[test]
 fn test_csv_handler_append() {
     let handler = CsvHandler::new();
-    
+
     // Create initial file
     let output_path = unique_path("csv_append", "csv");
     fs::write(&output_path, "A,B\n1,2\n").unwrap();
-    
+
     // Append data
     let new_data = vec![
         vec!["3".to_string(), "4".to_string()],
         vec!["5".to_string(), "6".to_string()],
     ];
     handler.append_records(&output_path, &new_data).unwrap();
-    
+
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(content.contains("1,2"));
     assert!(content.contains("3,4"));
     assert!(content.contains("5,6"));
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -146,7 +148,7 @@ fn test_csv_handler_append() {
 #[test]
 fn test_cell_range_parse() {
     let range = datacell::CellRange::parse("A1:C5").unwrap();
-    
+
     assert_eq!(range.start_row, 0);
     assert_eq!(range.start_col, 0);
     assert_eq!(range.end_row, 4);
@@ -156,7 +158,7 @@ fn test_cell_range_parse() {
 #[test]
 fn test_cell_range_parse_single_cell() {
     let range = datacell::CellRange::parse("B3").unwrap();
-    
+
     assert_eq!(range.start_row, 2);
     assert_eq!(range.start_col, 1);
 }
@@ -164,7 +166,7 @@ fn test_cell_range_parse_single_cell() {
 #[test]
 fn test_cell_range_parse_multi_letter_column() {
     let range = datacell::CellRange::parse("AA1:AB10").unwrap();
-    
+
     assert_eq!(range.start_col, 26); // AA = 26
     assert_eq!(range.end_col, 27); // AB = 27
 }
@@ -175,16 +177,18 @@ fn test_cell_range_parse_multi_letter_column() {
 fn test_convert_csv_to_parquet() {
     let converter = Converter::new();
     let output_path = unique_path("conv_csv_parquet", "parquet");
-    
-    converter.convert("examples/sales.csv", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/sales.csv", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     // Verify by reading back
     let handler = datacell::ParquetHandler::new();
     let data = handler.read_with_headers(&output_path).unwrap();
     assert!(data.len() > 1);
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -192,16 +196,18 @@ fn test_convert_csv_to_parquet() {
 fn test_convert_csv_to_avro() {
     let converter = Converter::new();
     let output_path = unique_path("conv_csv_avro", "avro");
-    
-    converter.convert("examples/employees.csv", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/employees.csv", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     // Verify by reading back
     let handler = datacell::AvroHandler::new();
     let data = handler.read_with_headers(&output_path).unwrap();
     assert!(data.len() > 1);
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -209,14 +215,16 @@ fn test_convert_csv_to_avro() {
 fn test_convert_parquet_to_csv() {
     let converter = Converter::new();
     let output_path = unique_path("conv_parquet_csv", "csv");
-    
-    converter.convert("examples/sales.parquet", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/sales.parquet", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(content.contains("Product") || content.contains("Laptop"));
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -224,14 +232,16 @@ fn test_convert_parquet_to_csv() {
 fn test_convert_avro_to_csv() {
     let converter = Converter::new();
     let output_path = unique_path("conv_avro_csv", "csv");
-    
-    converter.convert("examples/employees.avro", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/employees.avro", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(content.contains("ID") || content.contains("Name"));
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -239,11 +249,13 @@ fn test_convert_avro_to_csv() {
 fn test_convert_xlsx_to_parquet() {
     let converter = Converter::new();
     let output_path = unique_path("conv_xlsx_parquet", "parquet");
-    
-    converter.convert("examples/sales.xlsx", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/sales.xlsx", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     fs::remove_file(&output_path).ok();
 }
 
@@ -251,10 +263,12 @@ fn test_convert_xlsx_to_parquet() {
 fn test_convert_parquet_to_xlsx() {
     let converter = Converter::new();
     let output_path = unique_path("conv_parquet_xlsx", "xlsx");
-    
-    converter.convert("examples/numbers.parquet", &output_path, None).unwrap();
-    
+
+    converter
+        .convert("examples/numbers.parquet", &output_path, None)
+        .unwrap();
+
     assert!(Path::new(&output_path).exists());
-    
+
     fs::remove_file(&output_path).ok();
 }

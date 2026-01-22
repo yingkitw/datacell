@@ -77,7 +77,7 @@ impl ApiResponse {
             message: None,
         }
     }
-    
+
     pub fn error(message: String) -> Self {
         Self {
             success: false,
@@ -96,7 +96,12 @@ pub struct ApiServer {
 
 /// Trait for command handlers (to be implemented by CLI handler)
 pub trait CommandHandler {
-    fn handle_read(&self, input: &str, sheet: Option<&str>, range: Option<&str>) -> Result<Vec<Vec<String>>>;
+    fn handle_read(
+        &self,
+        input: &str,
+        sheet: Option<&str>,
+        range: Option<&str>,
+    ) -> Result<Vec<Vec<String>>>;
     fn handle_convert(&self, input: &str, output: &str, sheet: Option<&str>) -> Result<()>;
     fn handle_profile(&self, input: &str, sample_size: Option<usize>) -> Result<serde_json::Value>;
     fn handle_validate(&self, input: &str, rules: &str) -> Result<serde_json::Value>;
@@ -111,12 +116,15 @@ impl ApiServer {
             handler: Arc::new(DefaultApiHandler),
         }
     }
-    
+
     /// Start the API server
     pub async fn start(&self) -> Result<()> {
         // Note: This is a placeholder implementation
         // In a real implementation, you would use axum, warp, or actix-web
-        println!("API server would start on {}:{}", self.config.host, self.config.port);
+        println!(
+            "API server would start on {}:{}",
+            self.config.host, self.config.port
+        );
         println!("Endpoints:");
         println!("  POST /api/read");
         println!("  POST /api/convert");
@@ -124,28 +132,34 @@ impl ApiServer {
         println!("  POST /api/validate");
         println!("  POST /api/filter");
         println!("  POST /api/sort");
-        
+
         // For now, return Ok - actual server implementation would use tokio::spawn
         Ok(())
     }
-    
+
     /// Handle API request
     pub async fn handle_request(&self, request: ApiRequest) -> ApiResponse {
         let handler = &*self.handler;
-        
+
         match request {
-            ApiRequest::Read { input, sheet, range } => {
-                match handler.handle_read(&input, sheet.as_deref(), range.as_deref()) {
-                    Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
-                    Err(e) => ApiResponse::error(e.to_string()),
+            ApiRequest::Read {
+                input,
+                sheet,
+                range,
+            } => match handler.handle_read(&input, sheet.as_deref(), range.as_deref()) {
+                Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
+                Err(e) => ApiResponse::error(e.to_string()),
+            },
+            ApiRequest::Convert {
+                input,
+                output,
+                sheet,
+            } => match handler.handle_convert(&input, &output, sheet.as_deref()) {
+                Ok(_) => {
+                    ApiResponse::success(serde_json::json!({ "message": "Converted successfully" }))
                 }
-            }
-            ApiRequest::Convert { input, output, sheet } => {
-                match handler.handle_convert(&input, &output, sheet.as_deref()) {
-                    Ok(_) => ApiResponse::success(serde_json::json!({ "message": "Converted successfully" })),
-                    Err(e) => ApiResponse::error(e.to_string()),
-                }
-            }
+                Err(e) => ApiResponse::error(e.to_string()),
+            },
             ApiRequest::Profile { input, sample_size } => {
                 match handler.handle_profile(&input, sample_size) {
                     Ok(data) => ApiResponse::success(data),
@@ -158,18 +172,21 @@ impl ApiServer {
                     Err(e) => ApiResponse::error(e.to_string()),
                 }
             }
-            ApiRequest::Filter { input, where_clause } => {
-                match handler.handle_filter(&input, &where_clause) {
-                    Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
-                    Err(e) => ApiResponse::error(e.to_string()),
-                }
-            }
-            ApiRequest::Sort { input, column, ascending } => {
-                match handler.handle_sort(&input, &column, ascending) {
-                    Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
-                    Err(e) => ApiResponse::error(e.to_string()),
-                }
-            }
+            ApiRequest::Filter {
+                input,
+                where_clause,
+            } => match handler.handle_filter(&input, &where_clause) {
+                Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
+                Err(e) => ApiResponse::error(e.to_string()),
+            },
+            ApiRequest::Sort {
+                input,
+                column,
+                ascending,
+            } => match handler.handle_sort(&input, &column, ascending) {
+                Ok(data) => ApiResponse::success(serde_json::json!({ "data": data })),
+                Err(e) => ApiResponse::error(e.to_string()),
+            },
         }
     }
 }
@@ -178,28 +195,41 @@ impl ApiServer {
 struct DefaultApiHandler;
 
 impl CommandHandler for DefaultApiHandler {
-    fn handle_read(&self, _input: &str, _sheet: Option<&str>, _range: Option<&str>) -> Result<Vec<Vec<String>>> {
+    fn handle_read(
+        &self,
+        _input: &str,
+        _sheet: Option<&str>,
+        _range: Option<&str>,
+    ) -> Result<Vec<Vec<String>>> {
         anyhow::bail!("API handler not implemented")
     }
-    
+
     fn handle_convert(&self, _input: &str, _output: &str, _sheet: Option<&str>) -> Result<()> {
         anyhow::bail!("API handler not implemented")
     }
-    
-    fn handle_profile(&self, _input: &str, _sample_size: Option<usize>) -> Result<serde_json::Value> {
+
+    fn handle_profile(
+        &self,
+        _input: &str,
+        _sample_size: Option<usize>,
+    ) -> Result<serde_json::Value> {
         anyhow::bail!("API handler not implemented")
     }
-    
+
     fn handle_validate(&self, _input: &str, _rules: &str) -> Result<serde_json::Value> {
         anyhow::bail!("API handler not implemented")
     }
-    
+
     fn handle_filter(&self, _input: &str, _where_clause: &str) -> Result<Vec<Vec<String>>> {
         anyhow::bail!("API handler not implemented")
     }
-    
-    fn handle_sort(&self, _input: &str, _column: &str, _ascending: bool) -> Result<Vec<Vec<String>>> {
+
+    fn handle_sort(
+        &self,
+        _input: &str,
+        _column: &str,
+        _ascending: bool,
+    ) -> Result<Vec<Vec<String>>> {
         anyhow::bail!("API handler not implemented")
     }
 }
-
