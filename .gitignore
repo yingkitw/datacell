@@ -16,6 +16,7 @@ Cargo.lock
 # OS
 .DS_Store
 Thumbs.db
+CLAUDEE.md
 
 # Test artifacts
 *.csv
