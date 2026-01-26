@@ -33,6 +33,7 @@ pub mod streaming;
 pub mod text_analysis;
 pub mod timeseries;
 pub mod traits;
+pub mod types;
 pub mod validation;
 pub mod workflow;
 
@@ -76,5 +77,6 @@ pub use traits::{
     FilterCondition, FilterOperator, FormatDetector, SchemaProvider, SortOperator, StreamingReader,
     StreamingWriter, TransformOperation, TransformOperator,
 };
+pub use types::{CellValue, DataSet, DataType, DataRow};
 pub use validation::{DataValidator, ValidationConfig, ValidationResult, ValidationRule};
 pub use workflow::{WorkflowConfig, WorkflowExecutor, WorkflowStep};
