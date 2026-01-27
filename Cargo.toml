@@ -1,12 +1,45 @@
 [package]
 name = "datacell"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/yingkitw/datacell"
-keywords = ["csv", "excel", "spreadsheet", "data", "cli"]
-categories = ["command-line-utilities", "encoding"]
-description = "A CLI tool for reading, writing, converting XLS and CSV files with formula support"
+readme = "README.md"
+homepage = "https://github.com/yingkitw/datacell"
+documentation = "https://docs.rs/datacell"
+keywords = [
+    "csv",
+    "excel",
+    "xlsx",
+    "xls",
+    "ods",
+    "parquet",
+    "avro",
+    "spreadsheet",
+    "data",
+    "cli",
+    "data-processing",
+    "data-manipulation",
+    "pandas",
+    "dataframe",
+    "formula",
+    "conversion",
+    "etl",
+    "tabular-data",
+    "data-analysis"
+]
+categories = [
+    "command-line-utilities",
+    "encoding",
+    "data-structures",
+    "parsing",
+    "development-tools"
+]
+description = """
+A powerful CLI tool and library for spreadsheet manipulation with pandas-style operations.
+Supports CSV, Excel (XLSX, XLS, ODS), Parquet, and Avro formats with formula evaluation,
+data transformation, and comprehensive analytics capabilities.
+"""
 
 [[bin]]
 name = "datacell"
