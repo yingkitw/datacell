@@ -1,0 +1,23 @@
+Date,Category,Description,Amount,Account,Status
+2024-01-01,Income,Salary,5000.00,Checking,Deposited
+2024-01-05,Expense,Groceries,150.50,Checking,Cleared
+2024-01-07,Expense,Rent,1200.00,Checking,Cleared
+2024-01-10,Income,Freelance,1200.00,Savings,Deposited
+2024-01-12,Expense,Utilities,250.75,Checking,Pending
+2024-01-15,Expense,Dining Out,85.00,Credit Card,Cleared
+2024-01-18,Income,Salary,5000.00,Checking,Deposited
+2024-01-20,Expense,Gasoline,45.00,Credit Card,Cleared
+2024-01-22,Expense,Internet,79.99,Checking,Pending
+2024-01-25,Expense,Groceries,200.25,Checking,Cleared
+2024-01-28,Income,Dividend,150.00,Savings,Deposited
+2024-02-01,Expense,Rent,1200.00,Checking,Cleared
+2024-02-05,Expense,Groceries,180.00,Checking,Cleared
+2024-02-08,Income,Freelance,800.00,Savings,Deposited
+2024-02-10,Expense,Utilities,245.50,Checking,Pending
+2024-02-12,Expense,Dining Out,95.50,Credit Card,Cleared
+2024-02-15,Income,Salary,5000.00,Checking,Deposited
+2024-02-18,Expense,Gasoline,52.00,Credit Card,Cleared
+2024-02-20,Expense,Insurance,300.00,Checking,Cleared
+2024-02-22,Expense,Groceries,165.75,Checking,Cleared
+2024-02-25,Income,Bonus,2000.00,Checking,Deposited
+2024-02-28,Expense,Dining Out,110.00,Credit Card,Cleared

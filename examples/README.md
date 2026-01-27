@@ -1,9 +1,48 @@
-# Example Data Files
+# datacell Examples and Testing
 
-Sample data files for testing datacell functionality.
+Comprehensive examples and test suite for datacell functionality.
 
-## CSV Files
+## Quick Start
 
+### Run All Tests
+```bash
+# Automated test suite (shell script)
+chmod +x test_all_capabilities.sh
+./test_all_capabilities.sh
+
+# Python test runner with detailed reporting
+chmod +x run_tests.py
+python3 run_tests.py
+
+# Generate additional test data
+chmod +x test_data_generator.sh
+./test_data_generator.sh
+```
+
+### Run API Examples
+```bash
+cargo run --example api_usage
+```
+
+### Run Integration Tests
+```bash
+cargo test --example integration_tests
+```
+
+## Documentation
+
+- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Comprehensive testing guide with 80+ test cases
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference card for common commands
+- **[test_all_capabilities.sh](test_all_capabilities.sh)** - Automated test runner (bash)
+- **[run_tests.py](run_tests.py)** - Python test runner with JSON reporting
+- **[api_usage.rs](api_usage.rs)** - Programmatic API usage examples
+- **[integration_tests.rs](integration_tests.rs)** - 40+ integration tests
+
+## Sample Data Files
+
+### Existing Files
+
+#### CSV Files
 | File | Description | Use Case |
 |------|-------------|----------|
 | `sales.csv` | Product sales data | Filtering, sorting, SUMIF/COUNTIF |
@@ -11,29 +50,50 @@ Sample data files for testing datacell functionality.
 | `numbers.csv` | Numeric grid | SUM, AVERAGE, MIN, MAX, formulas |
 | `lookup.csv` | Product catalog | VLOOKUP examples |
 | `duplicates.csv` | Data with duplicates | Dedupe testing |
+| `financial_data.csv` | Financial time series | Date parsing, time series ops |
 
-## Excel Files
-
+#### Excel Files
 | File | Description | Use Case |
 |------|-------------|----------|
 | `sales.xlsx` | Product sales (styled) | Excel read, sheet listing |
 | `employees.xlsx` | Employee records (styled) | Excel read, JSON export |
 
-## Parquet Files
-
+#### Parquet Files
 | File | Description | Use Case |
 |------|-------------|----------|
 | `sales.parquet` | Product sales | Columnar format read/write |
 | `employees.parquet` | Employee records | Columnar format read/write |
 | `numbers.parquet` | Numeric grid | Columnar format read/write |
 
-## Avro Files
-
+#### Avro Files
 | File | Description | Use Case |
 |------|-------------|----------|
 | `sales.avro` | Product sales | Avro format read/write |
 | `employees.avro` | Employee records | Avro format read/write |
 | `lookup.avro` | Product catalog | Avro format read/write |
+
+#### Configuration Files
+| File | Description | Use Case |
+|------|-------------|----------|
+| `validation_rules.json` | Data validation rules | Validation testing |
+
+### Generated Test Files
+
+Run `./test_data_generator.sh` to create:
+- `products.csv` - Product catalog (10 products)
+- `orders.csv` - Order transactions (8 orders)
+- `customers.csv` - Customer data (5 customers)
+- `timeseries.csv` - Time series data (14 rows)
+- `missing_data.csv` - Data with missing values (6 rows)
+- `text_data.csv` - Text analysis data (5 rows)
+- `coordinates.csv` - Geospatial coordinates (5 locations)
+- `anomaly_data.csv` - Anomaly detection data (10 rows)
+- `multi_type.csv` - Multiple data types (5 rows)
+- `large_numbers.csv` - Large numeric values (5 rows)
+- `dates_various.csv` - Various date formats (5 rows)
+- `regex_test.csv` - Regex pattern testing (5 rows)
+- `correlation_data.csv` - Correlation analysis (7 rows)
+- `pivot_data.csv` - Pivot table data (12 rows)
 
 ## Example Commands
 
