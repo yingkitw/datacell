@@ -1,0 +1,4 @@
+Value counts for column 'Category':
+  Electronics: 5
+  Furniture: 3
+  Office: 2

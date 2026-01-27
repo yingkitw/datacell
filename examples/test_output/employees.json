@@ -1,0 +1,72 @@
+[
+  {
+    "Department": "Engineering",
+    "HireDate": "2020-03-15",
+    "ID": "1",
+    "Name": "Alice Johnson",
+    "Salary": "85000"
+  },
+  {
+    "Department": "Marketing",
+    "HireDate": "2019-07-22",
+    "ID": "2",
+    "Name": "Bob Smith",
+    "Salary": "65000"
+  },
+  {
+    "Department": "Engineering",
+    "HireDate": "2018-01-10",
+    "ID": "3",
+    "Name": "Carol Williams",
+    "Salary": "92000"
+  },
+  {
+    "Department": "Sales",
+    "HireDate": "2021-05-03",
+    "ID": "4",
+    "Name": "David Brown",
+    "Salary": "72000"
+  },
+  {
+    "Department": "Engineering",
+    "HireDate": "2022-02-28",
+    "ID": "5",
+    "Name": "Eva Martinez",
+    "Salary": "78000"
+  },
+  {
+    "Department": "Marketing",
+    "HireDate": "2023-01-15",
+    "ID": "6",
+    "Name": "Frank Lee",
+    "Salary": "58000"
+  },
+  {
+    "Department": "Sales",
+    "HireDate": "2020-11-08",
+    "ID": "7",
+    "Name": "Grace Chen",
+    "Salary": "81000"
+  },
+  {
+    "Department": "Engineering",
+    "HireDate": "2017-06-20",
+    "ID": "8",
+    "Name": "Henry Wilson",
+    "Salary": "95000"
+  },
+  {
+    "Department": "Marketing",
+    "HireDate": "2021-09-12",
+    "ID": "9",
+    "Name": "Ivy Taylor",
+    "Salary": "62000"
+  },
+  {
+    "Department": "Sales",
+    "HireDate": "2022-04-05",
+    "ID": "10",
+    "Name": "Jack Davis",
+    "Salary": "69000"
+  }
+]

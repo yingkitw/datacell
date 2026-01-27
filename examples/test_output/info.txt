@@ -1,0 +1,10 @@
+Dataset Info:
+  Rows: 10
+  Columns: 5
+
+Columns:
+  ID: number (10 non-null)
+  Name: string (10 non-null)
+  Department: string (10 non-null)
+  Salary: number (10 non-null)
+  HireDate: string (10 non-null)

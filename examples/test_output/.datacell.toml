@@ -1,0 +1,40 @@
+# datacell configuration file
+# Place this file at ~/.datacell.toml or .datacell.toml in your project
+
+# Default output format: csv, json, markdown
+default_format = "csv"
+
+# Default date format for parsing
+date_format = "%Y-%m-%d"
+
+# Default output directory for batch operations
+# output_dir = "output"
+
+[excel]
+# Make header row bold
+header_bold = true
+
+# Header background color (hex without #)
+header_bg_color = "4472C4"
+
+# Header font color (hex without #)
+header_font_color = "FFFFFF"
+
+# Enable auto-filter on headers
+auto_filter = true
+
+# Freeze first row (header)
+freeze_header = true
+
+# Auto-fit column widths
+auto_fit = true
+
+[csv]
+# Delimiter character (default: comma)
+delimiter = ","
+
+# Quote character (default: double quote)
+quote = "\""
+
+# Has header row
+has_header = true

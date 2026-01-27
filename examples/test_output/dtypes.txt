@@ -1,0 +1,6 @@
+Column Types:
+  ID: number
+  Name: string
+  Department: string
+  Salary: number
+  HireDate: string

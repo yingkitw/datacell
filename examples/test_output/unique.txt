@@ -1,0 +1,4 @@
+Unique values in column 'Category':
+  Electronics
+  Furniture
+  Office
