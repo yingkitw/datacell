@@ -1,33 +1,13 @@
 [package]
-name = "datacell"
+name = "xls-rs"
 version = "0.1.5"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/yingkitw/datacell"
+repository = "https://github.com/yingkitw/xls-rs"
 readme = "README.md"
-homepage = "https://github.com/yingkitw/datacell"
-documentation = "https://docs.rs/datacell"
-keywords = [
-    "csv",
-    "excel",
-    "xlsx",
-    "xls",
-    "ods",
-    "parquet",
-    "avro",
-    "spreadsheet",
-    "data",
-    "cli",
-    "data-processing",
-    "data-manipulation",
-    "pandas",
-    "dataframe",
-    "formula",
-    "conversion",
-    "etl",
-    "tabular-data",
-    "data-analysis"
-]
+homepage = "https://github.com/yingkitw/xls-rs"
+documentation = "https://docs.rs/xls-rs"
+keywords = ["csv", "excel", "spreadsheet", "parquet", "cli"]
 categories = [
     "command-line-utilities",
     "encoding",
@@ -42,11 +22,11 @@ data transformation, and comprehensive analytics capabilities.
 """
 
 [[bin]]
-name = "datacell"
+name = "xls-rs"
 path = "src/main.rs"
 
 [lib]
-name = "datacell"
+name = "xls_rs"
 path = "src/lib.rs"
 
 [dependencies]

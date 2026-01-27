@@ -15,8 +15,8 @@ use crate::formula::FormulaEvaluator;
 use rmcp::handler::server::tool::ToolRouter;
 
 #[derive(Debug, Clone)]
-pub struct DatacellMcpServer {
-    tool_router: ToolRouter<DatacellMcpServer>,
+pub struct XlsRsMcpServer {
+    tool_router: ToolRouter<XlsRsMcpServer>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -70,7 +70,7 @@ fn make_error(msg: String) -> McpError {
 }
 
 #[tool_router]
-impl DatacellMcpServer {
+impl XlsRsMcpServer {
     pub fn new() -> Self {
         Self {
             tool_router: Self::tool_router(),
@@ -189,7 +189,7 @@ impl DatacellMcpServer {
 }
 
 #[tool_handler]
-impl ServerHandler for DatacellMcpServer {
+impl ServerHandler for XlsRsMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,

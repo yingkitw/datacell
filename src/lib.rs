@@ -1,4 +1,4 @@
-//! datacell - A library for reading, writing, and converting spreadsheet files
+//! xls-rs - A library for reading, writing, and converting spreadsheet files
 //!
 //! Supports CSV, Excel (xlsx/xls), ODS, Parquet, and Avro formats with formula evaluation.
 
@@ -58,7 +58,7 @@ pub use geospatial::{Coordinate, GeospatialCalculator};
 pub use handler_registry::HandlerRegistry;
 pub use helpers::{default_column_names, filter_by_range, matches_extension, max_column_count};
 pub use lineage::{LineageNode, LineageTracker};
-pub use mcp::DatacellMcpServer;
+pub use mcp::XlsRsMcpServer;
 pub use operations::{
     AggFunc, DataOperations, JoinType, NoProgress, ProgressCallback, SortOrder, StderrProgress,
 };

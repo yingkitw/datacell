@@ -1,4 +1,4 @@
-# datacell
+# xls-rs
 
 A fast, unified CLI tool for spreadsheet and columnar data manipulation.
 
@@ -20,7 +20,7 @@ Common pain points:
 
 ## The Solution
 
-**datacell** is a single, fast CLI tool that:
+**xls-rs** is a single, fast CLI tool that:
 
 - Reads/writes **all major formats**: CSV, XLSX, XLS, ODS, Parquet, Avro
 - Applies **Excel-like formulas** to any format (SUM, VLOOKUP, IF, etc.)
@@ -30,9 +30,9 @@ Common pain points:
 - Runs as an **MCP server** for AI assistant integration
 - Provides **pandas-style operations** for data manipulation
 
-## Why datacell?
+## Why xls-rs?
 
-| Feature | datacell | pandas | csvkit | xsv | Excel |
+| Feature | xls-rs | pandas | csvkit | xsv | Excel |
 |---------|----------|--------|--------|-----|-------|
 | Single binary | ✅ | ❌ | ❌ | ✅ | ❌ |
 | CSV support | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -51,17 +51,17 @@ Common pain points:
 cargo build --release
 
 # Convert CSV to Parquet
-datacell convert --input data.csv --output data.parquet
+xls-rs convert --input data.csv --output data.parquet
 
 # Apply formula
-datacell formula --input sales.csv --output result.csv --formula "SUM(C2:C100)" --cell "D1"
+xls-rs formula --input sales.csv --output result.csv --formula "SUM(C2:C100)" --cell "D1"
 
 # Filter and sort (SQL-like syntax)
-datacell filter --input data.csv --output filtered.csv --where "status = 'active'"
-datacell sort --input filtered.csv --output sorted.csv --column date --descending
+xls-rs filter --input data.csv --output filtered.csv --where "status = 'active'"
+xls-rs sort --input filtered.csv --output sorted.csv --column date --descending
 
 # Output as JSON for API consumption
-datacell read --input report.xlsx --format json > report.json
+xls-rs read --input report.xlsx --format json > report.json
 ```
 
 ## Features
@@ -125,7 +125,7 @@ datacell read --input report.xlsx --format json > report.json
 cargo build --release
 ```
 
-The binary will be available at `target/release/datacell`.
+The binary will be available at `target/release/xls-rs`.
 
 ## Usage
 
@@ -133,50 +133,50 @@ The binary will be available at `target/release/datacell`.
 
 ```bash
 # Read CSV
-datacell read --input data.csv
+xls-rs read --input data.csv
 
 # Read Excel (first sheet)
-datacell read --input data.xlsx
+xls-rs read --input data.xlsx
 
 # Read specific sheet
-datacell read --input data.xlsx --sheet "Sheet2"
+xls-rs read --input data.xlsx --sheet "Sheet2"
 
 # Read specific cell range
-datacell read --input data.csv --range "A1:C10"
+xls-rs read --input data.csv --range "A1:C10"
 
 # Read as JSON
-datacell read --input data.csv --format json
+xls-rs read --input data.csv --format json
 
 # Read range as JSON
-datacell read --input data.xlsx --range "B2:D5" --format json
+xls-rs read --input data.xlsx --range "B2:D5" --format json
 
 # Read as Markdown table
-datacell read --input data.csv --format markdown
+xls-rs read --input data.csv --format markdown
 
 # Read Parquet file
-datacell read --input data.parquet
+xls-rs read --input data.parquet
 
 # Read Avro file
-datacell read --input data.avro
+xls-rs read --input data.avro
 ```
 
 ### Write a file
 
 ```bash
 # Write CSV from CSV
-datacell write --output output.csv --csv input.csv
+xls-rs write --output output.csv --csv input.csv
 
 # Write Excel from CSV
-datacell write --output output.xlsx --csv input.csv
+xls-rs write --output output.xlsx --csv input.csv
 
 # Write Parquet from CSV
-datacell write --output output.parquet --csv input.csv
+xls-rs write --output output.parquet --csv input.csv
 
 # Write Avro from CSV
-datacell write --output output.avro --csv input.csv
+xls-rs write --output output.avro --csv input.csv
 
 # Write Excel with specific sheet name
-datacell write --output output.xlsx --csv input.csv --sheet "Data"
+xls-rs write --output output.xlsx --csv input.csv --sheet "Data"
 ```
 
 ### Convert between formats
@@ -185,175 +185,175 @@ Supports conversion between: CSV, XLSX, XLS, ODS, Parquet, Avro
 
 ```bash
 # CSV to Excel
-datacell convert --input data.csv --output data.xlsx
+xls-rs convert --input data.csv --output data.xlsx
 
 # Excel to CSV
-datacell convert --input data.xlsx --output data.csv
+xls-rs convert --input data.xlsx --output data.csv
 
 # Excel to CSV (specific sheet)
-datacell convert --input data.xlsx --output data.csv --sheet "Sheet2"
+xls-rs convert --input data.xlsx --output data.csv --sheet "Sheet2"
 
 # CSV to Parquet
-datacell convert --input data.csv --output data.parquet
+xls-rs convert --input data.csv --output data.parquet
 
 # Parquet to CSV
-datacell convert --input data.parquet --output data.csv
+xls-rs convert --input data.parquet --output data.csv
 
 # Excel to Avro
-datacell convert --input data.xlsx --output data.avro
+xls-rs convert --input data.xlsx --output data.avro
 
 # Avro to Parquet
-datacell convert --input data.avro --output data.parquet
+xls-rs convert --input data.avro --output data.parquet
 
 # ODS to CSV
-datacell convert --input data.ods --output data.csv
+xls-rs convert --input data.ods --output data.csv
 ```
 
 ### Apply formulas
 
 ```bash
 # Apply SUM formula to CSV
-datacell formula --input data.csv --output result.csv --formula "SUM(A1:A10)" --cell "C1"
+xls-rs formula --input data.csv --output result.csv --formula "SUM(A1:A10)" --cell "C1"
 
 # Apply arithmetic formula
-datacell formula --input data.csv --output result.csv --formula "A1+B1" --cell "C1"
+xls-rs formula --input data.csv --output result.csv --formula "A1+B1" --cell "C1"
 
 # Apply AVERAGE formula to Excel
-datacell formula --input data.xlsx --output result.xlsx --formula "AVERAGE(A1:A10)" --cell "B1" --sheet "Sheet1"
+xls-rs formula --input data.xlsx --output result.xlsx --formula "AVERAGE(A1:A10)" --cell "B1" --sheet "Sheet1"
 ```
 
 ### Data operations
 
 ```bash
 # Sort by column A (ascending)
-datacell sort --input data.csv --output sorted.csv --column A
+xls-rs sort --input data.csv --output sorted.csv --column A
 
 # Sort by column B (descending)
-datacell sort --input data.csv --output sorted.csv --column B --descending
+xls-rs sort --input data.csv --output sorted.csv --column B --descending
 
 # Filter rows using SQL-like WHERE clause
-datacell filter --input data.csv --output filtered.csv --where "A > 10"
-datacell filter --input data.csv --output filtered.csv --where "status = 'active'"
+xls-rs filter --input data.csv --output filtered.csv --where "A > 10"
+xls-rs filter --input data.csv --output filtered.csv --where "status = 'active'"
 
 # Find and replace
-datacell replace --input data.csv --output replaced.csv --find "old" --replace "new"
+xls-rs replace --input data.csv --output replaced.csv --find "old" --replace "new"
 
 # Remove duplicate rows
-datacell dedupe --input data.csv --output unique.csv
+xls-rs dedupe --input data.csv --output unique.csv
 
 # Transpose (rows to columns)
-datacell transpose --input data.csv --output transposed.csv
+xls-rs transpose --input data.csv --output transposed.csv
 
 # Append data from one file to another
-datacell append --source new_data.csv --target existing.csv
+xls-rs append --source new_data.csv --target existing.csv
 
 # List sheets in Excel/ODS file
-datacell sheets --input workbook.xlsx
+xls-rs sheets --input workbook.xlsx
 
 # Read all sheets at once (as JSON)
-datacell read-all --input workbook.xlsx --format json
+xls-rs read-all --input workbook.xlsx --format json
 
 # Write data to specific cell range
-datacell write-range --input data.csv --output result.xlsx --start B2
+xls-rs write-range --input data.csv --output result.xlsx --start B2
 ```
 
 ### Pandas-style operations
 
 ```bash
 # First/last n rows
-datacell head --input data.csv -n 5
-datacell tail --input data.csv -n 5
+xls-rs head --input data.csv -n 5
+xls-rs tail --input data.csv -n 5
 
 # Sample random rows
-datacell sample --input data.csv -n 10 --seed 42
+xls-rs sample --input data.csv -n 10 --seed 42
 
 # Select specific columns
-datacell select --input data.csv --output subset.csv --columns "name,age,salary"
+xls-rs select --input data.csv --output subset.csv --columns "name,age,salary"
 
 # Describe statistics
-datacell describe --input data.csv --format markdown
+xls-rs describe --input data.csv --format markdown
 
 # Value counts
-datacell value-counts --input data.csv --column category
+xls-rs value-counts --input data.csv --column category
 
 # Group by and aggregate
-datacell groupby --input sales.csv --output summary.csv --by category --agg "sum:amount,count:id,mean:price"
+xls-rs groupby --input sales.csv --output summary.csv --by category --agg "sum:amount,count:id,mean:price"
 
 # Join two files
-datacell join --left orders.csv --right customers.csv --output merged.csv --on customer_id --how left
+xls-rs join --left orders.csv --right customers.csv --output merged.csv --on customer_id --how left
 
 # Concatenate files
-datacell concat --inputs "jan.csv,feb.csv,mar.csv" --output q1.csv
+xls-rs concat --inputs "jan.csv,feb.csv,mar.csv" --output q1.csv
 
 # Fill empty values
-datacell fillna --input data.csv --output filled.csv --value "N/A"
+xls-rs fillna --input data.csv --output filled.csv --value "N/A"
 
 # Drop rows with empty values
-datacell dropna --input data.csv --output clean.csv
+xls-rs dropna --input data.csv --output clean.csv
 
 # Drop columns
-datacell drop --input data.csv --output slim.csv --columns "temp,debug"
+xls-rs drop --input data.csv --output slim.csv --columns "temp,debug"
 
 # Rename columns
-datacell rename --input data.csv --output renamed.csv --from "old_name" --to "new_name"
+xls-rs rename --input data.csv --output renamed.csv --from "old_name" --to "new_name"
 
 # Pivot table
-datacell pivot --input sales.csv --output pivot.csv --index Category --columns Product --values Price --agg sum
+xls-rs pivot --input sales.csv --output pivot.csv --index Category --columns Product --values Price --agg sum
 
 # Correlation matrix
-datacell corr --input data.csv --columns "Price,Quantity" --format markdown
+xls-rs corr --input data.csv --columns "Price,Quantity" --format markdown
 
 # Show column types
-datacell dtypes --input data.csv --format markdown
+xls-rs dtypes --input data.csv --format markdown
 
 # SQL-like query
-datacell query --input data.csv --output filtered.csv -w "Price > 100"
+xls-rs query --input data.csv --output filtered.csv -w "Price > 100"
 
 # Add computed column
-datacell mutate --input data.csv --output result.csv --column Total --formula "Price * Quantity"
+xls-rs mutate --input data.csv --output result.csv --column Total --formula "Price * Quantity"
 
 # Cast column type
-datacell astype --input data.csv --output result.csv --column Price -t int
+xls-rs astype --input data.csv --output result.csv --column Price -t int
 
 # Get unique values
-datacell unique --input data.csv --column Category
+xls-rs unique --input data.csv --column Category
 
 # Dataset info
-datacell info --input data.csv --format markdown
+xls-rs info --input data.csv --format markdown
 
 # Clip values to range
-datacell clip --input data.csv --output clipped.csv --column Price --min 0 --max 1000
+xls-rs clip --input data.csv --output clipped.csv --column Price --min 0 --max 1000
 
 # Normalize column (0-1)
-datacell normalize --input data.csv --output normalized.csv --column Price
+xls-rs normalize --input data.csv --output normalized.csv --column Price
 
 # Parse and reformat dates
-datacell parse-date --input data.csv --output result.csv --column Date --from-format "%Y-%m-%d" --to-format "%d/%m/%Y"
+xls-rs parse-date --input data.csv --output result.csv --column Date --from-format "%Y-%m-%d" --to-format "%d/%m/%Y"
 
 # Filter with regex
-datacell regex-filter --input data.csv --output filtered.csv --column Name --pattern "^[A-M]"
+xls-rs regex-filter --input data.csv --output filtered.csv --column Name --pattern "^[A-M]"
 
 # Replace with regex
-datacell regex-replace --input data.csv --output result.csv --column Category --pattern "Electronics" --replacement "Tech"
+xls-rs regex-replace --input data.csv --output result.csv --column Category --pattern "Electronics" --replacement "Tech"
 
 # Batch process multiple files
-datacell batch --inputs "data/*.csv" --output-dir processed/ --operation sort --args '{"column":"Price","desc":true}'
+xls-rs batch --inputs "data/*.csv" --output-dir processed/ --operation sort --args '{"column":"Price","desc":true}'
 
 # Generate shell completions
-datacell completions zsh >> ~/.zshrc
-datacell completions bash >> ~/.bashrc
-datacell completions fish > ~/.config/fish/completions/datacell.fish
+xls-rs completions zsh >> ~/.zshrc
+xls-rs completions bash >> ~/.bashrc
+xls-rs completions fish > ~/.config/fish/completions/xls-rs.fish
 
 # Initialize config file
-datacell config-init --output .datacell.toml
+xls-rs config-init --output .datacell.toml
 
 # Export to Excel with styling
-datacell export-styled --input data.csv --output styled.xlsx --header-bg 4472C4 --header-font FFFFFF
+xls-rs export-styled --input data.csv --output styled.xlsx --header-bg 4472C4 --header-font FFFFFF
 
 # Create charts
-datacell chart --input sales.csv --output chart.xlsx -t column --title "Sales by Product"
-datacell chart --input data.csv --output multi.xlsx -t bar --value-cols "1,2,3" --title "Comparison"
-datacell chart --input data.csv --output pie.xlsx -t pie --title "Distribution"
+xls-rs chart --input sales.csv --output chart.xlsx -t column --title "Sales by Product"
+xls-rs chart --input data.csv --output multi.xlsx -t bar --value-cols "1,2,3" --title "Comparison"
+xls-rs chart --input data.csv --output pie.xlsx -t pie --title "Distribution"
 ```
 
 ## Formula Examples
@@ -382,36 +382,36 @@ datacell chart --input data.csv --output pie.xlsx -t pie --title "Distribution"
 ### Data Pipeline Automation
 ```bash
 # Daily ETL: Excel → Parquet for analytics
-datacell convert --input daily_report.xlsx --output data/daily_$(date +%Y%m%d).parquet
+xls-rs convert --input daily_report.xlsx --output data/daily_$(date +%Y%m%d).parquet
 ```
 
 ### Report Generation
 ```bash
 # Calculate totals and output as Markdown for documentation
-datacell formula --input sales.csv --output report.csv --formula "SUM(D2:D100)" --cell "E1"
-datacell read --input report.csv --format markdown > REPORT.md
+xls-rs formula --input sales.csv --output report.csv --formula "SUM(D2:D100)" --cell "E1"
+xls-rs read --input report.csv --format markdown > REPORT.md
 ```
 
 ### Data Cleaning
 ```bash
 # Remove duplicates, filter invalid rows, sort
-datacell dedupe --input raw.csv --output clean.csv
-datacell filter --input clean.csv --output valid.csv --column status --op "!=" --value "invalid"
-datacell sort --input valid.csv --output final.csv --column date
+xls-rs dedupe --input raw.csv --output clean.csv
+xls-rs filter --input clean.csv --output valid.csv --column status --op "!=" --value "invalid"
+xls-rs sort --input valid.csv --output final.csv --column date
 ```
 
 ### Format Migration
 ```bash
 # Migrate legacy Excel files to modern Parquet
 for f in *.xlsx; do
-  datacell convert --input "$f" --output "${f%.xlsx}.parquet"
+  xls-rs convert --input "$f" --output "${f%.xlsx}.parquet"
 done
 ```
 
 ### AI/LLM Integration
 ```bash
 # Start MCP server for AI assistant integration
-datacell serve
+xls-rs serve
 ```
 
 ## Example Data
@@ -421,7 +421,7 @@ See the `examples/` folder for sample data files and usage examples.
 ## Architecture
 
 ```
-datacell/
+xls-rs/
 ├── src/
 │   ├── main.rs          # CLI entry point
 │   ├── lib.rs           # Library exports
@@ -459,58 +459,58 @@ datacell/
 ### Data Validation
 ```bash
 # Validate data against rules
-datacell validate --input data.csv --rules rules.json --output validated.csv --report report.json
+xls-rs validate --input data.csv --rules rules.json --output validated.csv --report report.json
 ```
 
 ### Data Profiling
 ```bash
 # Generate data profile and quality report
-datacell profile --input data.csv --output profile.json --report quality_report.md
+xls-rs profile --input data.csv --output profile.json --report quality_report.md
 ```
 
 ### Text Analysis
 ```bash
 # Analyze text content
-datacell text-analysis --input data.csv --column content --operation stats
-datacell text-analysis --input data.csv --column content --operation sentiment
-datacell text-analysis --input data.csv --column content --operation keywords
+xls-rs text-analysis --input data.csv --column content --operation stats
+xls-rs text-analysis --input data.csv --column content --operation sentiment
+xls-rs text-analysis --input data.csv --column content --operation keywords
 ```
 
 ### Time Series Operations
 ```bash
 # Resample time series data
-datacell resample --input data.csv --output resampled.csv --date-column date --value-column value --interval daily --aggregation sum
+xls-rs resample --input data.csv --output resampled.csv --date-column date --value-column value --interval daily --aggregation sum
 ```
 
 ### Geospatial Operations
 ```bash
 # Calculate distance between coordinates
-datacell geo-distance --from "40.7128,-74.0060" --to "34.0522,-118.2437" --unit km
+xls-rs geo-distance --from "40.7128,-74.0060" --to "34.0522,-118.2437" --unit km
 ```
 
 ### Anomaly Detection
 ```bash
 # Detect anomalies using statistical methods
-datacell detect-anomalies --input data.csv --column value --method zscore --threshold 3.0 --output anomalies.json
+xls-rs detect-anomalies --input data.csv --column value --method zscore --threshold 3.0 --output anomalies.json
 ```
 
 ### Data Encryption
 ```bash
 # Encrypt/decrypt data files
-datacell encrypt --input data.csv --output encrypted.csv --key secretkey --algorithm aes256
-datacell decrypt --input encrypted.csv --output decrypted.csv --key secretkey --algorithm aes256
+xls-rs encrypt --input data.csv --output encrypted.csv --key secretkey --algorithm aes256
+xls-rs decrypt --input encrypted.csv --output decrypted.csv --key secretkey --algorithm aes256
 ```
 
 ### Workflow Orchestration
 ```bash
 # Execute multi-step workflow pipeline
-datacell pipeline --config pipeline.toml
+xls-rs pipeline --config pipeline.toml
 ```
 
 ### REST API Server
 ```bash
 # Start REST API server (requires HTTP framework implementation)
-datacell api-server --host 127.0.0.1 --port 8080 --cors
+xls-rs api-server --host 127.0.0.1 --port 8080 --cors
 ```
 
 ## Dependencies
@@ -608,7 +608,7 @@ python3 run_tests.py
 Create a `.datacell.toml` file for default options:
 
 ```bash
-datacell config-init
+xls-rs config-init
 ```
 
 Example configuration:

@@ -18,7 +18,7 @@ pub use handler::DefaultCommandHandler;
 
 /// CLI structure
 #[derive(Parser)]
-#[command(name = "datacell")]
+#[command(name = "xls-rs")]
 #[command(
     about = "A CLI tool for reading, writing, converting spreadsheet files with formula support",
     version = env!("CARGO_PKG_VERSION")

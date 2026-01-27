@@ -1,12 +1,12 @@
-//! Configuration file support for datacell
+//! Configuration file support for xls-rs
 //!
-//! Supports loading default options from ~/.datacell.toml or .datacell.toml
+//! Supports loading default options from ~/.xls-rs.toml or .xls-rs.toml
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Configuration for datacell CLI
+/// Configuration for xls-rs CLI
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// Default output format (csv, json, markdown)
@@ -80,10 +80,10 @@ impl Config {
         // Try loading from multiple locations in order
         let paths = vec![
             // Current directory
-            PathBuf::from(".datacell.toml"),
+            PathBuf::from(".xls-rs.toml"),
             // Home directory
             dirs::home_dir()
-                .map(|p| p.join(".datacell.toml"))
+                .map(|p| p.join(".xls-rs.toml"))
                 .unwrap_or_default(),
             // XDG config
             dirs::config_dir()
@@ -120,7 +120,7 @@ impl Config {
     /// Generate a default config file content
     pub fn default_config_content() -> &'static str {
         r#"# datacell configuration file
-# Place this file at ~/.datacell.toml or .datacell.toml in your project
+# Place this file at ~/.xls-rs.toml or .xls-rs.toml in your project
 
 # Default output format: csv, json, markdown
 default_format = "csv"
