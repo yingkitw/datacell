@@ -167,7 +167,9 @@ impl CsvStreamingReader {
                     .map_err(|e| anyhow::anyhow!("Failed to open CSV: {}", e))?,
             );
         }
-        Ok(self.reader.as_mut().unwrap())
+        self.reader
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get reader reference"))
     }
 }
 

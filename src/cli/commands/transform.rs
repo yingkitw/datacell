@@ -10,12 +10,13 @@ use crate::{
 use anyhow::Result;
 
 /// Data transformation command handler
+#[derive(Default)]
 pub struct TransformCommandHandler;
 
 impl TransformCommandHandler {
     /// Create a new transformation command handler
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Handle the sort command
@@ -46,7 +47,7 @@ impl TransformCommandHandler {
 
         // Write output
         converter.write_any_data(&output, &data, None)?;
-        println!("Sorted by {} ({:?}); wrote {}", column, order, output);
+        println!("Sorted by {column} ({order:?}); wrote {output}");
 
         Ok(())
     }
@@ -64,8 +65,7 @@ impl TransformCommandHandler {
         let parts: Vec<&str> = where_clause.split_whitespace().collect();
         if parts.len() < 3 {
             anyhow::bail!(
-                "Invalid WHERE clause format. Expected: 'column operator value', got: '{}'",
-                where_clause
+                "Invalid WHERE clause format. Expected: 'column operator value', got: '{where_clause}'"
             );
         }
 
@@ -113,7 +113,7 @@ impl TransformCommandHandler {
                     }
                 }
             }
-            println!("Replaced {} occurrences in column '{}'", count, col_name);
+            println!("Replaced {count} occurrences in column '{col_name}'");
         } else {
             // Replace in all cells
             let mut count = 0;
@@ -125,11 +125,11 @@ impl TransformCommandHandler {
                     }
                 }
             }
-            println!("Replaced {} occurrences in all cells", count);
+            println!("Replaced {count} occurrences in all cells");
         }
 
         converter.write_any_data(&output, &data, None)?;
-        println!("Wrote {}", output);
+        println!("Wrote {output}");
 
         Ok(())
     }
@@ -172,7 +172,11 @@ impl TransformCommandHandler {
         };
 
         converter.write_any_data(&output, &deduped, None)?;
-        println!("Removed {} duplicates; wrote {}", data.len() - deduped.len(), output);
+        println!(
+            "Removed {} duplicates; wrote {}",
+            data.len() - deduped.len(),
+            output
+        );
 
         Ok(())
     }
@@ -188,10 +192,14 @@ impl TransformCommandHandler {
         let transposed = ops.transpose(&data);
 
         converter.write_any_data(&output, &transposed, None)?;
-        println!("Transposed {}x{} to {}x{}; wrote {}",
-            data.len(), data.first().map(|r| r.len()).unwrap_or(0),
-            transposed.len(), transposed.first().map(|r| r.len()).unwrap_or(0),
-            output);
+        println!(
+            "Transposed {}x{} to {}x{}; wrote {}",
+            data.len(),
+            data.first().map(|r| r.len()).unwrap_or(0),
+            transposed.len(),
+            transposed.first().map(|r| r.len()).unwrap_or(0),
+            output
+        );
 
         Ok(())
     }
@@ -218,7 +226,13 @@ impl TransformCommandHandler {
     /// Handle the rename command
     ///
     /// Renames columns in the data.
-    pub fn handle_rename(&self, input: String, output: String, from: String, to: String) -> Result<()> {
+    pub fn handle_rename(
+        &self,
+        input: String,
+        output: String,
+        from: String,
+        to: String,
+    ) -> Result<()> {
         let converter = Converter::new();
         let mut data = converter.read_any_data(&input, None)?;
 
@@ -226,7 +240,7 @@ impl TransformCommandHandler {
         ops.rename_columns(&mut data, &[(from.as_str(), to.as_str())])?;
 
         converter.write_any_data(&output, &data, None)?;
-        println!("Renamed column '{}' to '{}'; wrote {}", from, to, output);
+        println!("Renamed column '{from}' to '{to}'; wrote {output}");
 
         Ok(())
     }
@@ -274,7 +288,8 @@ impl TransformCommandHandler {
                 .collect::<Result<Vec<_>>>()?;
 
             let mut count = 0;
-            for row in &mut data.iter_mut().skip(1) { // Skip header
+            for row in &mut data.iter_mut().skip(1) {
+                // Skip header
                 for col_idx in &col_indices {
                     if let Some(cell) = row.get_mut(*col_idx) {
                         if cell.is_empty() {
@@ -289,11 +304,11 @@ impl TransformCommandHandler {
             // Fill all columns
             let ops = DataOperations::new();
             ops.fillna(&mut data, &value);
-            println!("Filled all empty cells with '{}'", value);
+            println!("Filled all empty cells with '{value}'");
         }
 
         converter.write_any_data(&output, &data, None)?;
-        println!("Wrote {}", output);
+        println!("Wrote {output}");
 
         Ok(())
     }
@@ -309,8 +324,11 @@ impl TransformCommandHandler {
         let filtered = ops.dropna(&data);
 
         converter.write_any_data(&output, &filtered, None)?;
-        println!("Dropped {} rows with empty values; wrote {}",
-            data.len() - filtered.len(), output);
+        println!(
+            "Dropped {} rows with empty values; wrote {}",
+            data.len() - filtered.len(),
+            output
+        );
 
         Ok(())
     }
@@ -351,7 +369,7 @@ impl TransformCommandHandler {
         }
 
         converter.write_any_data(&output, &data, None)?;
-        println!("Added column '{}' with formula '{}'; wrote {}", column, formula, output);
+        println!("Added column '{column}' with formula '{formula}'; wrote {output}");
 
         Ok(())
     }
@@ -385,7 +403,7 @@ impl TransformCommandHandler {
         let converted = ops.astype(&mut data, col_idx, &target_type)?;
 
         converter.write_any_data(&output, &data, None)?;
-        println!("Converted {} cells to type '{}'; wrote {}", converted, target_type, output);
+        println!("Converted {converted} cells to type '{target_type}'; wrote {output}");
 
         Ok(())
     }
@@ -393,14 +411,14 @@ impl TransformCommandHandler {
     /// Find column index by name
     fn find_column_index(&self, data: &[Vec<String>], column: &str) -> Result<usize> {
         if data.is_empty() {
-            anyhow::bail!("Data is empty, cannot find column '{}'", column);
+            anyhow::bail!("Data is empty, cannot find column '{column}'");
         }
 
         let header = &data[0];
         header
             .iter()
             .position(|h| h == column)
-            .ok_or_else(|| anyhow::anyhow!("Column '{}' not found", column))
+            .ok_or_else(|| anyhow::anyhow!("Column '{column}' not found"))
     }
 
     /// Simple formula evaluator for mutate command
@@ -412,7 +430,7 @@ impl TransformCommandHandler {
         for (_i, _row) in data.iter().enumerate().skip(1) {
             // For now, just return the formula as-is (placeholder)
             // A real implementation would evaluate the formula against row data
-            results.push(format!("{}", formula));
+            results.push(formula.to_string());
         }
 
         Ok(results)

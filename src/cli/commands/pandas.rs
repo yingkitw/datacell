@@ -11,12 +11,13 @@ use crate::{
 use anyhow::Result;
 
 /// Pandas-style operation command handler
+#[derive(Default)]
 pub struct PandasCommandHandler;
 
 impl PandasCommandHandler {
     /// Create a new pandas command handler
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Handle the head command
@@ -102,7 +103,7 @@ impl PandasCommandHandler {
         let ops = DataOperations::new();
         let counts = ops.value_counts(&data, col_idx);
 
-        println!("Value counts for column '{}':", column);
+        println!("Value counts for column '{column}':");
         for row in &counts[1..] {
             if row.len() >= 2 {
                 println!("  {}: {}", row[0], row[1]);
@@ -135,7 +136,7 @@ impl PandasCommandHandler {
         println!("Correlation Matrix:");
         for row in &corr_matrix {
             for val in row {
-                print!("{} ", val);
+                print!("{val} ");
             }
             println!();
         }
@@ -161,7 +162,7 @@ impl PandasCommandHandler {
 
         // Parse aggregation function
         let agg_func = AggFunc::from_str(&agg)?;
-        
+
         // For simple groupby, aggregate the first value column (column 1 if exists)
         let value_col = if data[0].len() > 1 { 1 } else { 0 };
         let aggregations = vec![(value_col, agg_func)];
@@ -170,7 +171,7 @@ impl PandasCommandHandler {
         let grouped = ops.groupby(&data, by_idx, &aggregations)?;
 
         converter.write_any_data(&output, &grouped, None)?;
-        println!("Grouped by '{}' with '{}' aggregation; wrote {}", by, agg, output);
+        println!("Grouped by '{by}' with '{agg}' aggregation; wrote {output}");
 
         Ok(())
     }
@@ -206,8 +207,7 @@ impl PandasCommandHandler {
         let joined = ops.join(&left_data, &right_data, left_col, right_col, join_type)?;
 
         converter.write_any_data(&output, &joined, None)?;
-        println!("Joined {} and {} on '{}' ({} join); wrote {}",
-            left, right, on, how, output);
+        println!("Joined {left} and {right} on '{on}' ({how} join); wrote {output}");
 
         Ok(())
     }
@@ -231,7 +231,7 @@ impl PandasCommandHandler {
         };
 
         if input_files.is_empty() {
-            anyhow::bail!("No input files found for pattern: {}", inputs);
+            anyhow::bail!("No input files found for pattern: {inputs}");
         }
 
         // Read all datasets
@@ -263,10 +263,10 @@ impl PandasCommandHandler {
         let ops = DataOperations::new();
         let unique = ops.unique(&data, col_idx);
 
-        println!("Unique values in column '{}':", column);
+        println!("Unique values in column '{column}':");
         for row in &unique[1..] {
             if let Some(val) = row.first() {
-                println!("  {}", val);
+                println!("  {val}");
             }
         }
 

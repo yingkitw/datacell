@@ -6,7 +6,7 @@ mod core;
 mod pandas;
 mod stats;
 mod transform;
-mod types;
+pub mod types;
 
 pub use core::DataOperations;
 pub use types::{AggFunc, JoinType, SortOrder};

@@ -7,7 +7,7 @@ static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn unique_path(prefix: &str, ext: &str) -> String {
     let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("{}_{}.{}", prefix, id, ext)
+    format!("{prefix}_{id}.{ext}")
 }
 
 #[test]
@@ -101,8 +101,7 @@ fn test_formula_sum() {
     // SUM(1+3+5) = 9
     assert!(
         content.contains("9"),
-        "SUM result should be 9, got: {}",
-        content
+        "SUM result should be 9, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -126,8 +125,7 @@ fn test_formula_average() {
     // AVERAGE(10+30+50)/3 = 30
     assert!(
         content.contains("30"),
-        "AVERAGE result should be 30, got: {}",
-        content
+        "AVERAGE result should be 30, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -151,8 +149,7 @@ fn test_formula_min() {
     // MIN of all values = 1
     assert!(
         content.contains("1"),
-        "MIN result should be 1, got: {}",
-        content
+        "MIN result should be 1, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -176,8 +173,7 @@ fn test_formula_max() {
     // MAX of all values = 8
     assert!(
         content.contains("8"),
-        "MAX result should be 8, got: {}",
-        content
+        "MAX result should be 8, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -201,8 +197,7 @@ fn test_formula_count() {
     // COUNT of 6 cells = 6
     assert!(
         content.contains("6"),
-        "COUNT result should be 6, got: {}",
-        content
+        "COUNT result should be 6, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -226,8 +221,7 @@ fn test_formula_arithmetic_multiply() {
     // 3*4 = 12
     assert!(
         content.contains("12"),
-        "Multiply result should be 12, got: {}",
-        content
+        "Multiply result should be 12, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -251,8 +245,7 @@ fn test_formula_arithmetic_divide() {
     // 20/4 = 5
     assert!(
         content.contains("5"),
-        "Divide result should be 5, got: {}",
-        content
+        "Divide result should be 5, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -276,8 +269,7 @@ fn test_formula_if_true() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("100"),
-        "IF true branch should be 100, got: {}",
-        content
+        "IF true branch should be 100, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -301,8 +293,7 @@ fn test_formula_if_false() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains(",0") || content.starts_with("0"),
-        "IF false branch should be 0, got: {}",
-        content
+        "IF false branch should be 0, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -331,8 +322,7 @@ fn test_formula_concat() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("Result: 12"),
-        "CONCAT should produce 'Result: 12', got: {}",
-        content
+        "CONCAT should produce 'Result: 12', got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -393,8 +383,7 @@ fn test_formula_vlookup() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("20"),
-        "VLOOKUP should find 20, got: {}",
-        content
+        "VLOOKUP should find 20, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -424,8 +413,7 @@ fn test_formula_sumif() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("60"),
-        "SUMIF should be 60, got: {}",
-        content
+        "SUMIF should be 60, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -449,8 +437,7 @@ fn test_formula_countif() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("3"),
-        "COUNTIF should be 3, got: {}",
-        content
+        "COUNTIF should be 3, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();
@@ -473,8 +460,7 @@ fn test_formula_round() {
     let content = fs::read_to_string(&output_path).unwrap();
     assert!(
         content.contains("3.14"),
-        "ROUND should be 3.14, got: {}",
-        content
+        "ROUND should be 3.14, got: {content}"
     );
 
     fs::remove_file(&input_path).ok();

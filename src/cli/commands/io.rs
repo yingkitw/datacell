@@ -3,20 +3,18 @@
 //! Implements read, write, convert, and related I/O operations.
 
 use crate::{
-    cli::OutputFormat,
-    converter::Converter,
-    excel::ExcelHandler,
-    formula::FormulaEvaluator,
+    cli::OutputFormat, converter::Converter, excel::ExcelHandler, formula::FormulaEvaluator,
 };
 use anyhow::{Context, Result};
 
 /// I/O command handler
+#[derive(Default)]
 pub struct IoCommandHandler;
 
 impl IoCommandHandler {
     /// Create a new I/O command handler
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Handle the read command
@@ -72,7 +70,8 @@ impl IoCommandHandler {
             let mut input = String::new();
             std::io::Read::read_to_string(&mut std::io::stdin(), &mut input)
                 .context("Failed to read from stdin")?;
-            input.lines()
+            input
+                .lines()
                 .filter(|l| !l.is_empty())
                 .map(|l| l.split(',').map(|s| s.trim().to_string()).collect())
                 .collect()
@@ -80,7 +79,7 @@ impl IoCommandHandler {
 
         // Write to output
         converter.write_any_data(&output, &data, sheet.as_deref())?;
-        println!("Wrote {}", output);
+        println!("Wrote {output}");
 
         Ok(())
     }
@@ -96,7 +95,7 @@ impl IoCommandHandler {
     ) -> Result<()> {
         let converter = Converter::new();
         converter.convert(&input, &output, sheet.as_deref())?;
-        println!("Converted {} to {}", input, output);
+        println!("Converted {input} to {output}");
         Ok(())
     }
 
@@ -113,7 +112,7 @@ impl IoCommandHandler {
     ) -> Result<()> {
         let evaluator = FormulaEvaluator::new();
 
-        let result = if input.ends_with(".csv") {
+        if input.ends_with(".csv") {
             evaluator.apply_to_csv(&input, &output, &formula, &cell)?
         } else if input.ends_with(".xls") || input.ends_with(".xlsx") {
             evaluator.apply_to_excel(&input, &output, &formula, &cell, sheet.as_deref())?
@@ -121,7 +120,7 @@ impl IoCommandHandler {
             anyhow::bail!("Unsupported file format for formula. Use .csv, .xls, or .xlsx");
         };
 
-        Ok(result)
+        Ok(())
     }
 
     /// Handle the serve command
@@ -143,7 +142,7 @@ impl IoCommandHandler {
         let handler = ExcelHandler::new();
         let sheets = handler.list_sheets(&input)?;
 
-        println!("Sheets in {}:", input);
+        println!("Sheets in {input}:");
         for (i, sheet) in sheets.iter().enumerate() {
             println!("  {}. {}", i + 1, sheet);
         }
@@ -159,7 +158,7 @@ impl IoCommandHandler {
         let sheets = handler.list_sheets(&input)?;
 
         for sheet in &sheets {
-            println!("=== Sheet: {} ===", sheet);
+            println!("=== Sheet: {sheet} ===");
             self.handle_read(input.clone(), Some(sheet.clone()), None, format)?;
             println!();
         }
@@ -184,7 +183,7 @@ impl IoCommandHandler {
         }
 
         converter.write_any_data(&output, &offset_data, None)?;
-        println!("Wrote data starting at {} in {}", start, output);
+        println!("Wrote data starting at {start} in {output}");
 
         Ok(())
     }
@@ -206,7 +205,7 @@ impl IoCommandHandler {
 
         // Write back to target
         converter.write_any_data(&target, &target_data, None)?;
-        println!("Appended {} rows to {}", source_data.len() - 1, target);
+        println!("Appended {} rows to {target}", source_data.len() - 1);
 
         Ok(())
     }
@@ -214,9 +213,7 @@ impl IoCommandHandler {
     /// Parse Excel-style cell reference (e.g., "A1" -> row=0, col=0)
     fn parse_cell_ref(&self, cell: &str) -> Result<(usize, usize)> {
         let cell = cell.to_uppercase();
-        let (col_part, row_part): (String, String) = cell
-            .chars()
-            .partition(|c| c.is_alphabetic());
+        let (col_part, row_part): (String, String) = cell.chars().partition(|c| c.is_alphabetic());
 
         // Parse column (base-26)
         let mut col_idx = 0;
@@ -228,7 +225,7 @@ impl IoCommandHandler {
         // Parse row
         let row_idx: usize = row_part
             .parse()
-            .context(format!("Invalid row number in cell reference: {}", cell))?;
+            .context(format!("Invalid row number in cell reference: {cell}"))?;
         let row_idx = row_idx - 1; // Convert to 0-indexed
 
         Ok((row_idx, col_idx))
@@ -262,10 +259,7 @@ impl IoCommandHandler {
                 let mut obj = serde_json::Map::new();
                 for (i, header) in headers.iter().enumerate() {
                     let value = row.get(i).map(|s| s.as_str()).unwrap_or("");
-                    obj.insert(
-                        header.clone(),
-                        serde_json::json!(value),
-                    );
+                    obj.insert(header.clone(), serde_json::json!(value));
                 }
                 serde_json::Value::Object(obj)
             })

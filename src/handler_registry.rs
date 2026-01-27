@@ -2,6 +2,7 @@
 
 use crate::columnar::{AvroHandler, ParquetHandler};
 use crate::csv_handler::CsvHandler;
+use crate::excel::ExcelHandler;
 use crate::format_detector::DefaultFormatDetector;
 use crate::traits::FormatDetector;
 use crate::traits::{DataReader, DataWriteOptions, DataWriter, FileHandler};
@@ -25,14 +26,10 @@ impl HandlerRegistry {
 
         match format.as_str() {
             "csv" => Ok(Box::new(CsvHandler::new())),
-            "xlsx" | "xls" | "ods" => {
-                // Excel handler needs special handling, return CSV for now
-                // TODO: Implement DataReader for ExcelHandler
-                Ok(Box::new(CsvHandler::new()))
-            }
+            "xlsx" | "xls" | "ods" => Ok(Box::new(ExcelHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
-            _ => anyhow::bail!("Unsupported format: {}", format),
+            _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }
 
@@ -42,14 +39,10 @@ impl HandlerRegistry {
 
         match format.as_str() {
             "csv" => Ok(Box::new(CsvHandler::new())),
-            "xlsx" | "xls" | "ods" => {
-                // Excel handler needs special handling
-                // TODO: Implement DataWriter for ExcelHandler
-                Ok(Box::new(CsvHandler::new()))
-            }
+            "xlsx" | "xls" | "ods" => Ok(Box::new(ExcelHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
-            _ => anyhow::bail!("Unsupported format: {}", format),
+            _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }
 
@@ -61,7 +54,7 @@ impl HandlerRegistry {
             "csv" => Ok(Box::new(CsvHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
-            _ => anyhow::bail!("Unsupported format: {}", format),
+            _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }
 

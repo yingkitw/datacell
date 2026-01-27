@@ -328,10 +328,64 @@ impl TransformOperator for DataOperations {
                     }
                 }
             }
-            TransformOperation::AddColumn { name, formula: _ } => {
-                // TODO: Implement formula evaluation
-                for row in data.iter_mut() {
-                    row.push(name.clone());
+            TransformOperation::AddColumn { name, formula } => {
+                if let Some(formula_str) = formula {
+                    // Use formula evaluator to compute the column value
+                    use crate::formula::FormulaEvaluator;
+                    let evaluator = FormulaEvaluator::new();
+
+                    // Check if formula contains cell references that might be row-relative
+                    // Cell references like A1, B2, C10, etc. suggest per-row evaluation
+                    let has_cell_refs = formula_str.chars().any(|c: char| c.is_ascii_uppercase())
+                        && formula_str.contains(|c: char| c.is_ascii_digit());
+
+                    if has_cell_refs {
+                        // Per-row formula evaluation: evaluate formula for each row
+                        // with row-specific cell references (A1 for row 0, A2 for row 1, etc.)
+                        // Clone data first to avoid borrow issues
+                        let data_clone = data.clone();
+                        for (row_idx, row) in data.iter_mut().enumerate() {
+                            // Replace row number in cell references with current row index
+                            // e.g., A1 -> A{row_idx+1}, B2 -> B{row_idx+1}
+                            let row_formula = adjust_cell_references_for_row(&formula_str, row_idx);
+
+                            match evaluator.evaluate_formula_full(&row_formula, &data_clone) {
+                                Ok(result) => {
+                                    let value = match result {
+                                        crate::formula::FormulaResult::Number(n) => n.to_string(),
+                                        crate::formula::FormulaResult::Text(s) => s,
+                                    };
+                                    row.push(value);
+                                }
+                                Err(_) => {
+                                    row.push(format!("#ERROR: {}", name));
+                                }
+                            }
+                        }
+                    } else {
+                        // Aggregate formula: evaluate once for all rows (SUM, AVERAGE, etc.)
+                        match evaluator.evaluate_formula_full(&formula_str, data) {
+                            Ok(result) => {
+                                let value = match result {
+                                    crate::formula::FormulaResult::Number(n) => n.to_string(),
+                                    crate::formula::FormulaResult::Text(s) => s,
+                                };
+                                for row in data.iter_mut() {
+                                    row.push(value.clone());
+                                }
+                            }
+                            Err(_) => {
+                                for row in data.iter_mut() {
+                                    row.push(format!("#ERROR: {}", name));
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // No formula, just add the column name
+                    for row in data.iter_mut() {
+                        row.push(name.clone());
+                    }
                 }
             }
             TransformOperation::FillNa { column, value } => {
@@ -347,3 +401,61 @@ impl TransformOperator for DataOperations {
 }
 
 impl DataOperator for DataOperations {}
+
+/// Adjust cell references in a formula to be row-specific
+///
+/// This function takes a formula like "A1*2" and adjusts it to use the
+/// current row index, e.g., for row 0 it becomes "A1*2", for row 1 it becomes "A2*2", etc.
+///
+/// # Arguments
+/// * `formula` - The formula string potentially containing cell references
+/// * `row_idx` - The zero-based row index
+///
+/// # Returns
+/// A formula string with adjusted cell references
+fn adjust_cell_references_for_row(formula: &str, row_idx: usize) -> String {
+    use regex::Regex;
+
+    let row_num = row_idx + 1;
+
+    // Match cell references like A1, B2, Z100, AA1, etc.
+    // Pattern: One or more letters followed by one or more digits
+    let re = Regex::new(r"([A-Za-z]+)(\d+)").unwrap();
+
+    let result = re.replace_all(formula, |caps: &regex::Captures| {
+        let column = &caps[1]; // e.g., "A", "B", "AA"
+        let _old_row = &caps[2]; // e.g., "1", "2", "100"
+        format!("{}{}", column, row_num)
+    });
+
+    result.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_adjust_cell_references_for_row() {
+        // Single column references
+        assert_eq!(adjust_cell_references_for_row("A1", 0), "A1");
+        assert_eq!(adjust_cell_references_for_row("A1", 1), "A2");
+        assert_eq!(adjust_cell_references_for_row("A1", 9), "A10");
+
+        // Multiple column references
+        assert_eq!(adjust_cell_references_for_row("A1+B2", 0), "A1+B1");
+        assert_eq!(adjust_cell_references_for_row("A1+B2", 1), "A2+B2");
+        assert_eq!(adjust_cell_references_for_row("A1+B2", 2), "A3+B3");
+
+        // Complex formulas
+        assert_eq!(adjust_cell_references_for_row("SUM(A1:B10)", 0), "SUM(A1:B1)");
+        assert_eq!(adjust_cell_references_for_row("A1*2+B1", 5), "A6*2+B6");
+
+        // Double-letter columns
+        assert_eq!(adjust_cell_references_for_row("AA1", 2), "AA3");
+        assert_eq!(adjust_cell_references_for_row("AB12+CD3", 1), "AB2+CD2");
+
+        // Mixed case
+        assert_eq!(adjust_cell_references_for_row("a1+b2", 0), "a1+b1");
+    }
+}

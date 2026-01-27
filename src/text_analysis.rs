@@ -209,7 +209,7 @@ impl TextAnalyzer {
             .collect();
 
         // Sort by score and take top keywords
-        keywords.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        keywords.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
         keywords.truncate(max_keywords);
 
         KeywordResult {
@@ -227,7 +227,7 @@ impl TextAnalyzer {
 
         let (language, confidence) = language_scores
             .into_iter()
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(("unknown".to_string(), 0.0));
 
         LanguageResult {

@@ -361,7 +361,7 @@ impl Default for DataSet {
     }
 }
 
-/// Conversion from legacy Vec<Vec<String>> format
+/// Conversion from legacy `Vec<Vec<String>>` format
 impl From<Vec<Vec<String>>> for DataSet {
     fn from(data: Vec<Vec<String>>) -> Self {
         if data.is_empty() {
@@ -381,7 +381,7 @@ impl From<Vec<Vec<String>>> for DataSet {
     }
 }
 
-/// Conversion to legacy Vec<Vec<String>> format
+/// Conversion to legacy `Vec<Vec<String>>` format
 impl From<DataSet> for Vec<Vec<String>> {
     fn from(dataset: DataSet) -> Vec<Vec<String>> {
         let mut result = vec![dataset.columns];

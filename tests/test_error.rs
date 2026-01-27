@@ -6,7 +6,7 @@ use datacell::{DatacellError, ErrorContext, ErrorKind};
 fn test_error_column_not_found() {
     let error = DatacellError::column_not_found("missing_col");
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Column 'missing_col' not found"));
 }
 
@@ -14,7 +14,7 @@ fn test_error_column_not_found() {
 fn test_error_invalid_value() {
     let error = DatacellError::invalid_value("abc", "number");
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Invalid value 'abc'"));
     assert!(msg.contains("number"));
 }
@@ -23,7 +23,7 @@ fn test_error_invalid_value() {
 fn test_error_type_conversion() {
     let error = DatacellError::type_conversion("hello", "integer");
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Type conversion failed"));
     assert!(msg.contains("hello"));
     assert!(msg.contains("integer"));
@@ -34,7 +34,7 @@ fn test_error_with_file_context() {
     let error = DatacellError::column_not_found("col")
         .with_context(ErrorContext::new().with_file("data.csv"));
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("data.csv"));
 }
 
@@ -43,7 +43,7 @@ fn test_error_with_row_context() {
     let error = DatacellError::invalid_value("x", "number")
         .with_context(ErrorContext::new().with_file("test.csv").with_row(5));
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("test.csv"));
     assert!(msg.contains("row 6")); // 1-indexed for display
 }
@@ -57,7 +57,7 @@ fn test_error_with_cell_context() {
             .with_column(3),
     );
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("input.csv"));
     assert!(msg.contains("row 3"));
     assert!(msg.contains("column 4"));
@@ -68,7 +68,7 @@ fn test_error_with_cell_ref() {
     let error = DatacellError::invalid_value("err", "date")
         .with_context(ErrorContext::new().with_cell_ref("B5"));
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("cell B5"));
 }
 
@@ -95,7 +95,7 @@ fn test_error_kind_division_by_zero() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Division by zero"));
 }
 
@@ -106,7 +106,7 @@ fn test_error_kind_invalid_formula() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Invalid formula"));
     assert!(msg.contains("SUM(A1:"));
 }
@@ -118,7 +118,7 @@ fn test_error_kind_file_not_found() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("File not found"));
     assert!(msg.contains("missing.csv"));
 }
@@ -130,7 +130,7 @@ fn test_error_kind_unsupported_format() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Unsupported file format"));
     assert!(msg.contains("xyz"));
 }
@@ -142,7 +142,7 @@ fn test_error_kind_parse_error() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Parse error"));
 }
 
@@ -153,7 +153,7 @@ fn test_error_kind_invalid_date_format() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Invalid date format"));
 }
 
@@ -164,7 +164,7 @@ fn test_error_kind_invalid_regex() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("Invalid regex"));
 }
 
@@ -175,7 +175,7 @@ fn test_error_kind_io_error() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("IO error"));
 }
 
@@ -186,6 +186,6 @@ fn test_error_kind_other() {
         context: ErrorContext::new(),
     };
 
-    let msg = format!("{}", error);
+    let msg = format!("{error}");
     assert!(msg.contains("custom error message"));
 }

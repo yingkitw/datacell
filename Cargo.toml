@@ -38,6 +38,15 @@ dirs = "5.0"
 glob = "0.3.3"
 clap_complete = "4.5.65"
 
+# Optional API server dependencies
+axum = { version = "0.7", optional = true }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.5", features = ["cors", "limit"], optional = true }
+
+[features]
+default = []
+api = ["axum", "tower", "tower-http"]
+
 [dev-dependencies]
 tempfile = "3.12"
 

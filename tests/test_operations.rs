@@ -2,8 +2,8 @@ use datacell::{AggFunc, DataOperations, JoinType, SortOrder};
 use std::fs;
 
 fn read_example_csv(name: &str) -> Vec<Vec<String>> {
-    let path = format!("examples/{}.csv", name);
-    let content = fs::read_to_string(&path).expect(&format!("Failed to read {}", path));
+    let path = format!("examples/{name}.csv");
+    let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {path}"));
     content
         .lines()
         .filter(|l| !l.is_empty())
@@ -420,7 +420,7 @@ fn test_info() {
     let info = ops.info(&data);
 
     // Should contain dataset info
-    assert!(info.len() > 0);
+    assert!(!info.is_empty());
 }
 
 // ============ Sample Tests ============

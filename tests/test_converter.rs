@@ -7,7 +7,7 @@ static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn unique_path(prefix: &str, ext: &str) -> String {
     let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("test_{}_{}.{}", prefix, id, ext)
+    format!("test_{prefix}_{id}.{ext}")
 }
 
 // ============ CSV to Excel Conversion ============

@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
-use calamine::{Ods, Reader, Xlsx, open_workbook};
+use calamine::{open_workbook, Ods, Reader, Xlsx};
 
 use crate::csv_handler::CellRange;
+use crate::traits::DataReader;
 
 /// Excel file handler
 pub struct ExcelHandler;
@@ -17,7 +18,7 @@ impl ExcelHandler {
 
     pub fn read_with_sheet(&self, path: &str, sheet_name: Option<&str>) -> Result<String> {
         let mut workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
         let sheet_names = workbook.sheet_names();
         let sheet_name = sheet_name
@@ -53,7 +54,7 @@ impl ExcelHandler {
         let col = self.column_to_index(&col_str)?;
         let row = row_str
             .parse::<u32>()
-            .with_context(|| format!("Invalid row number in cell reference: {}", cell))?;
+            .with_context(|| format!("Invalid row number in cell reference: {cell}"))?;
 
         Ok((row - 1, col))
     }
@@ -74,7 +75,7 @@ impl ExcelHandler {
         sheet_name: Option<&str>,
     ) -> Result<Vec<Vec<String>>> {
         let mut workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
         let sheet_names = workbook.sheet_names();
         let sheet_name = sheet_name
@@ -109,7 +110,7 @@ impl ExcelHandler {
     /// Read Excel and return as JSON array
     pub fn read_as_json(&self, path: &str, sheet_name: Option<&str>) -> Result<String> {
         let mut workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
         let sheet_names = workbook.sheet_names();
         let sheet_name = sheet_name
@@ -131,7 +132,7 @@ impl ExcelHandler {
     /// Get list of sheet names in workbook
     pub fn list_sheets(&self, path: &str) -> Result<Vec<String>> {
         let workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
         Ok(workbook.sheet_names().to_vec())
     }
 
@@ -141,7 +142,7 @@ impl ExcelHandler {
         path: &str,
     ) -> Result<std::collections::HashMap<String, Vec<Vec<String>>>> {
         let mut workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
         let sheet_names = workbook.sheet_names().to_vec();
         let mut result = std::collections::HashMap::new();
@@ -149,7 +150,7 @@ impl ExcelHandler {
         for sheet_name in sheet_names {
             let range = workbook
                 .worksheet_range(&sheet_name)
-                .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
+                .with_context(|| format!("Failed to read sheet: {sheet_name}"))?;
 
             let mut rows: Vec<Vec<String>> = Vec::new();
             for row in range.rows() {
@@ -165,7 +166,7 @@ impl ExcelHandler {
     /// Read ODS as CSV-like string
     pub fn read_ods(&self, path: &str, sheet_name: Option<&str>) -> Result<String> {
         let mut workbook: Ods<_> =
-            open_workbook(path).with_context(|| format!("Failed to open ODS file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open ODS file: {path}"))?;
 
         let sheet_names = workbook.sheet_names();
         let sheet_name = sheet_name
@@ -189,7 +190,7 @@ impl ExcelHandler {
     /// Read ODS into `Vec<Vec<String>>`
     pub fn read_ods_data(&self, path: &str, sheet_name: Option<&str>) -> Result<Vec<Vec<String>>> {
         let mut workbook: Ods<_> =
-            open_workbook(path).with_context(|| format!("Failed to open ODS file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open ODS file: {path}"))?;
 
         let sheet_names = workbook.sheet_names();
         let sheet_name = sheet_name
@@ -211,7 +212,7 @@ impl ExcelHandler {
     /// List sheets in ODS file
     pub fn list_ods_sheets(&self, path: &str) -> Result<Vec<String>> {
         let workbook: Ods<_> =
-            open_workbook(path).with_context(|| format!("Failed to open ODS file: {}", path))?;
+            open_workbook(path).with_context(|| format!("Failed to open ODS file: {path}"))?;
         Ok(workbook.sheet_names().to_vec())
     }
 
@@ -238,6 +239,92 @@ impl ExcelHandler {
             }
         }
 
-        anyhow::bail!("Unsupported file format: {}", path)
+        anyhow::bail!("Unsupported file format: {path}")
+    }
+}
+
+impl DataReader for ExcelHandler {
+    fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        let csv_str = self.read_with_sheet(path, None)?;
+        let result: Vec<Vec<String>> = csv_str
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.split(',').map(|s| s.to_string()).collect())
+            .collect();
+        Ok(result)
+    }
+
+    fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
+        // Call the trait method explicitly to avoid conflict with inherent method
+        let csv_str = self.read_with_sheet(path, None)?;
+        let result: Vec<Vec<String>> = csv_str
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.split(',').map(|s| s.to_string()).collect())
+            .collect();
+        Ok(result)
+    }
+
+    fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
+        // Direct implementation to avoid method name conflicts
+        let mut workbook: Xlsx<_> =
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
+
+        let sheet_names = workbook.sheet_names();
+        let sheet_name = sheet_names
+            .first()
+            .map(|s| s.as_str())
+            .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
+
+        let ws_range = workbook
+            .worksheet_range(sheet_name)
+            .with_context(|| format!("Failed to read sheet: {sheet_name}"))?;
+
+        let mut result = Vec::new();
+        for (row_idx, row) in ws_range.rows().enumerate() {
+            if row_idx < range.start_row {
+                continue;
+            }
+            if row_idx > range.end_row {
+                break;
+            }
+
+            let row_data: Vec<String> = row
+                .iter()
+                .enumerate()
+                .filter(|(col_idx, _)| *col_idx >= range.start_col && *col_idx <= range.end_col)
+                .map(|(_, cell)| cell.to_string())
+                .collect();
+            result.push(row_data);
+        }
+
+        Ok(result)
+    }
+
+    fn read_as_json(&self, path: &str) -> Result<String> {
+        let mut workbook: Xlsx<_> =
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
+
+        let sheet_names = workbook.sheet_names();
+        let sheet_name = sheet_names
+            .first()
+            .map(|s| s.as_str())
+            .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
+
+        let range = workbook
+            .worksheet_range(sheet_name)
+            .with_context(|| format!("Failed to read sheet: {sheet_name}"))?;
+
+        let mut rows: Vec<Vec<String>> = Vec::new();
+        for row in range.rows() {
+            rows.push(row.iter().map(|cell| cell.to_string()).collect());
+        }
+
+        serde_json::to_string_pretty(&rows).with_context(|| "Failed to serialize to JSON")
+    }
+
+    fn supports_format(&self, path: &str) -> bool {
+        let path_lower = path.to_lowercase();
+        path_lower.ends_with(".xlsx") || path_lower.ends_with(".xls") || path_lower.ends_with(".ods")
     }
 }

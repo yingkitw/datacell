@@ -14,12 +14,13 @@ use crate::{
 use anyhow::{Context, Result};
 
 /// Advanced command handler
+#[derive(Default)]
 pub struct AdvancedCommandHandler;
 
 impl AdvancedCommandHandler {
     /// Create a new advanced command handler
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Handle the profile command
@@ -36,7 +37,7 @@ impl AdvancedCommandHandler {
 
         if let Some(output_path) = output {
             std::fs::write(&output_path, report)
-                .context(format!("Failed to write profile to {}", output_path))?;
+                .context(format!("Failed to write profile to {output_path}"))?;
             println!("Profile saved to {}", output_path);
         } else {
             println!("{}", report);
@@ -79,7 +80,7 @@ impl AdvancedCommandHandler {
         if let Some(report_path) = report {
             let report = validator.generate_report(&result);
             std::fs::write(&report_path, report)
-                .context(format!("Failed to write report to {}", report_path))?;
+                .context(format!("Failed to write report to {report_path}"))?;
             println!("Validation report saved to {}", report_path);
         }
 
@@ -203,7 +204,7 @@ impl AdvancedCommandHandler {
     ) -> Result<()> {
         // Ensure output directory exists
         std::fs::create_dir_all(&output_dir)
-            .context(format!("Failed to create output directory {}", output_dir))?;
+            .context(format!("Failed to create output directory {output_dir}"))?;
 
         // Parse input files
         let input_files: Vec<String> = if inputs.contains('*') {
@@ -218,10 +219,13 @@ impl AdvancedCommandHandler {
         };
 
         if input_files.is_empty() {
-            anyhow::bail!("No input files found for pattern: {}", inputs);
+            anyhow::bail!("No input files found for pattern: {inputs}");
         }
 
-        println!("Processing {} files with operation '{}'...", input_files.len(), operation);
+        println!(
+            "Processing {} files with operation '{operation}'...",
+            input_files.len()
+        );
 
         let mut success_count = 0;
         let mut error_count = 0;
@@ -237,7 +241,7 @@ impl AdvancedCommandHandler {
             // Execute operation based on type
             let result = match operation.as_str() {
                 "convert" => {
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         anyhow::bail!("Convert operation requires output format argument");
                     }
                     let format = &args[0];
@@ -245,20 +249,20 @@ impl AdvancedCommandHandler {
                     self.batch_convert(input_file, &output_with_ext)
                 }
                 "sort" => {
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         anyhow::bail!("Sort operation requires column argument");
                     }
                     self.batch_sort(input_file, &output_file, &args[0], true)
                 }
                 "filter" => {
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         anyhow::bail!("Filter operation requires where clause argument");
                     }
                     self.batch_filter(input_file, &output_file, &args[0])
                 }
                 "dedupe" => self.batch_dedupe(input_file, &output_file),
                 "normalize" => {
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         anyhow::bail!("Normalize operation requires column argument");
                     }
                     self.batch_normalize(input_file, &output_file, &args[0])
@@ -272,7 +276,7 @@ impl AdvancedCommandHandler {
                     success_count += 1;
                 }
                 Err(e) => {
-                    println!("  ✗ {}: {}", input_file, e);
+                    println!("  ✗ {input_file}: {e}");
                     error_count += 1;
                 }
             }
@@ -306,7 +310,7 @@ impl AdvancedCommandHandler {
         let result = registry.execute(&function, &args, &data)?;
 
         converter.write_any_data(&output, &result, None)?;
-        println!("Executed plugin '{}' on {}; wrote {}", function, input, output);
+        println!("Executed plugin '{function}' on {input}; wrote {output}");
 
         Ok(())
     }
@@ -316,11 +320,11 @@ impl AdvancedCommandHandler {
     /// Processes a large file in chunks to reduce memory usage.
     pub fn handle_stream(&self, input: String, output: String, _chunk_size: usize) -> Result<()> {
         println!("Streaming support is a placeholder. Processing file normally...");
-        
+
         let converter = Converter::new();
         let data = converter.read_any_data(&input, None)?;
         converter.write_any_data(&output, &data, None)?;
-        
+
         println!("Processed {} rows; wrote {}", data.len(), output);
 
         Ok(())
@@ -335,7 +339,7 @@ impl AdvancedCommandHandler {
         use std::io;
 
         let mut cmd = super::super::Cli::command();
-        
+
         let shell_type = match shell.to_lowercase().as_str() {
             "bash" => Shell::Bash,
             "zsh" => Shell::Zsh,
@@ -439,7 +443,15 @@ impl AdvancedCommandHandler {
 
         let col_idx = self.find_column_index(&data, column)?;
         let ops = DataOperations::new();
-        ops.sort_by_column(&mut data, col_idx, if ascending { SortOrder::Ascending } else { SortOrder::Descending })?;
+        ops.sort_by_column(
+            &mut data,
+            col_idx,
+            if ascending {
+                SortOrder::Ascending
+            } else {
+                SortOrder::Descending
+            },
+        )?;
 
         converter.write_any_data(output, &data, None)?;
         Ok(())

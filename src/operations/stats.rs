@@ -59,7 +59,7 @@ impl DataOperations {
                         ),
                         "25%" | "50%" | "75%" => {
                             let mut sorted = col_values.clone();
-                            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                             let p = match stat {
                                 "25%" => 0.25,
                                 "50%" => 0.50,

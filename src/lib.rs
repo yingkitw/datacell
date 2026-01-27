@@ -38,7 +38,7 @@ pub mod validation;
 pub mod workflow;
 
 pub use anomaly::{Anomaly, AnomalyDetector, AnomalyMethod, AnomalyResult};
-pub use api::{ApiConfig, ApiRequest, ApiResponse, ApiServer, CommandHandler};
+pub use api::{ApiConfig, ApiRequest, ApiResponse, ApiServer};
 pub use columnar::{AvroHandler, ParquetHandler};
 pub use config::Config;
 pub use converter::Converter;

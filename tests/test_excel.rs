@@ -7,12 +7,12 @@ static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 fn unique_path(prefix: &str, ext: &str) -> String {
     let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("test_{}_{}.{}", prefix, id, ext)
+    format!("test_{prefix}_{id}.{ext}")
 }
 
 fn read_example_csv(name: &str) -> Vec<Vec<String>> {
-    let path = format!("examples/{}.csv", name);
-    let content = fs::read_to_string(&path).expect(&format!("Failed to read {}", path));
+    let path = format!("examples/{name}.csv");
+    let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {path}"));
     content
         .lines()
         .filter(|l| !l.is_empty())

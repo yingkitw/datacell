@@ -57,7 +57,7 @@ impl CellRange {
         let col = Self::column_to_index(&col_str)?;
         let row = row_str
             .parse::<usize>()
-            .with_context(|| format!("Invalid row in cell: {}", cell))?;
+            .with_context(|| format!("Invalid row in cell: {cell}"))?;
 
         Ok((row.saturating_sub(1), col)) // Convert to 0-indexed
     }
@@ -83,7 +83,7 @@ impl CsvHandler {
 
     pub fn read(&self, path: &str) -> Result<String> {
         let mut file =
-            File::open(path).with_context(|| format!("Failed to open CSV file: {}", path))?;
+            File::open(path).with_context(|| format!("Failed to open CSV file: {path}"))?;
 
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
@@ -95,7 +95,7 @@ impl CsvHandler {
         let mut reader = ReaderBuilder::new()
             .has_headers(false)
             .from_path(input_path)
-            .with_context(|| format!("Failed to open CSV file: {}", input_path))?;
+            .with_context(|| format!("Failed to open CSV file: {input_path}"))?;
 
         let mut writer = WriterBuilder::new()
             .has_headers(false)
@@ -115,7 +115,7 @@ impl CsvHandler {
         let mut writer = WriterBuilder::new()
             .has_headers(false)
             .from_path(path)
-            .with_context(|| format!("Failed to create CSV file: {}", path))?;
+            .with_context(|| format!("Failed to create CSV file: {path}"))?;
 
         for record in records {
             writer.write_record(&record)?;
@@ -131,7 +131,7 @@ impl CsvHandler {
             .has_headers(false)
             .flexible(true)
             .from_path(path)
-            .with_context(|| format!("Failed to open CSV file: {}", path))?;
+            .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
         let mut result = Vec::new();
 
@@ -162,7 +162,7 @@ impl CsvHandler {
             .has_headers(false)
             .flexible(true)
             .from_path(path)
-            .with_context(|| format!("Failed to open CSV file: {}", path))?;
+            .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
         let mut rows: Vec<Vec<String>> = Vec::new();
         for record in reader.records() {
@@ -181,7 +181,7 @@ impl CsvHandler {
             .create(true)
             .append(true)
             .open(path)
-            .with_context(|| format!("Failed to open CSV file for append: {}", path))?;
+            .with_context(|| format!("Failed to open CSV file for append: {path}"))?;
 
         let mut writer = csv::WriterBuilder::new()
             .has_headers(false)
@@ -250,8 +250,7 @@ pub struct StreamingCsvReader {
 
 impl StreamingCsvReader {
     pub fn open(path: &str) -> Result<Self> {
-        let file =
-            File::open(path).with_context(|| format!("Failed to open CSV file: {}", path))?;
+        let file = File::open(path).with_context(|| format!("Failed to open CSV file: {path}"))?;
         let buf_reader = BufReader::with_capacity(64 * 1024, file); // 64KB buffer
 
         let reader = ReaderBuilder::new()
@@ -294,7 +293,7 @@ pub struct StreamingCsvWriter {
 impl StreamingCsvWriter {
     pub fn create(path: &str) -> Result<Self> {
         let file =
-            File::create(path).with_context(|| format!("Failed to create CSV file: {}", path))?;
+            File::create(path).with_context(|| format!("Failed to create CSV file: {path}"))?;
         let buf_writer = BufWriter::with_capacity(64 * 1024, file);
 
         let writer = WriterBuilder::new()
@@ -337,7 +336,7 @@ impl DataReader for CsvHandler {
             .has_headers(false)
             .flexible(true)
             .from_path(path)
-            .with_context(|| format!("Failed to open CSV file: {}", path))?;
+            .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
         let mut rows = Vec::new();
         for record in reader.records() {

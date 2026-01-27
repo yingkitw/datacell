@@ -3,6 +3,7 @@
 //! Provides pipeline execution capabilities for chaining multiple operations.
 
 use crate::handler_registry::HandlerRegistry;
+use crate::operations::DataOperations;
 use crate::traits::DataWriteOptions;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -85,24 +86,109 @@ impl WorkflowExecutor {
         data: &[Vec<String>],
         args: Option<&serde_json::Value>,
     ) -> Result<Vec<Vec<String>>> {
+        let mut result = data.to_vec();
+        let ops = DataOperations::new();
+
         match operation {
             "read" => Ok(data.to_vec()),
+
             "filter" => {
-                // Simple filter implementation
-                Ok(data.to_vec())
-            }
-            "sort" => {
-                let mut result = data.to_vec();
                 if let Some(args) = args {
-                    if let Some(col) = args.get("column").and_then(|v| v.as_u64()) {
-                        use crate::operations::DataOperations;
-                        use crate::traits::SortOperator;
-                        let ops = DataOperations::new();
-                        ops.sort(&mut result, col as usize, true)?;
+                    if let Some(column_idx) = args.get("column").and_then(|v| v.as_u64()) {
+                        if let Some(where_clause) = args.get("where").and_then(|v| v.as_str()) {
+                            result = ops.filter_rows(&result, column_idx as usize, where_clause, "")?;
+                        }
                     }
                 }
                 Ok(result)
             }
+
+            "sort" => {
+                if let Some(args) = args {
+                    if let Some(column_idx) = args.get("column").and_then(|v| v.as_u64()) {
+                        let ascending = args.get("ascending")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(true);
+
+                        use crate::operations::types::SortOrder;
+                        let order = if ascending { SortOrder::Ascending } else { SortOrder::Descending };
+                        ops.sort_by_column(&mut result, column_idx as usize, order)?;
+                    }
+                }
+                Ok(result)
+            }
+
+            "transform" => {
+                if let Some(args) = args {
+                    if let Some(op_type) = args.get("operation").and_then(|v| v.as_str()) {
+                        match op_type {
+                            "replace" => {
+                                if let Some(find) = args.get("find").and_then(|v| v.as_str()) {
+                                    if let Some(replace) = args.get("replace").and_then(|v| v.as_str()) {
+                                        if let Some(column_idx) = args.get("column").and_then(|v| v.as_u64()) {
+                                            let _count = ops.replace(&mut result, column_idx as usize, find, replace);
+                                            println!("  Replaced '{}' with '{}' in column {}", find, replace, column_idx);
+                                        }
+                                    }
+                                }
+                            }
+                            "dedupe" => {
+                                let count = ops.deduplicate_mut(&mut result);
+                                println!("  Removed {} duplicate rows", count);
+                            }
+                            "transpose" => {
+                                result = ops.transpose(&result);
+                            }
+                            "fillna" => {
+                                if let Some(value) = args.get("value").and_then(|v| v.as_str()) {
+                                    ops.fillna(&mut result, value);
+                                }
+                            }
+                            "dropna" => {
+                                result = ops.dropna(&result);
+                            }
+                            _ => anyhow::bail!("Unknown transform operation: {}", op_type),
+                        }
+                    }
+                }
+                Ok(result)
+            }
+
+            "mutate" => {
+                if let Some(args) = args {
+                    if let Some(_column) = args.get("column").and_then(|v| v.as_str()) {
+                        if let Some(_formula) = args.get("formula").and_then(|v| v.as_str()) {
+                            // For now, just add a placeholder column
+                            // Full formula evaluation with mutate is complex
+                            for row in &mut result {
+                                row.push("MUTATED".to_string());
+                            }
+                        }
+                    }
+                }
+                Ok(result)
+            }
+
+            "select" => {
+                if let Some(args) = args {
+                    if let Some(columns) = args.get("columns").and_then(|v| v.as_array()) {
+                        let column_names: Vec<&str> = columns
+                            .iter()
+                            .filter_map(|v| v.as_str())
+                            .collect();
+
+                        result = ops.select_columns_by_name(&result, &column_names)?;
+                    }
+                }
+                Ok(result)
+            }
+
+            "describe" => {
+                let desc = ops.describe(&result)?;
+                println!("  Statistics: {:?}", desc);
+                Ok(desc)
+            }
+
             _ => anyhow::bail!("Unknown operation: {}", operation),
         }
     }

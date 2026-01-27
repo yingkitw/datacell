@@ -176,10 +176,10 @@ fn test_multiple_plugins() {
         vec!["alice".to_string()],
     ];
 
-    let result1 = registry.execute("uppercase", &vec!["0".to_string()], &data).unwrap();
+    let result1 = registry.execute("uppercase", &["0".to_string()], &data).unwrap();
     assert_eq!(result1[1][0], "ALICE");
 
-    let result2 = registry.execute("prefix", &vec!["0".to_string(), "Ms. ".to_string()], &data).unwrap();
+    let result2 = registry.execute("prefix", &["0".to_string(), "Ms. ".to_string()], &data).unwrap();
     assert_eq!(result2[1][0], "Ms. alice");
 }
 

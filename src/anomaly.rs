@@ -103,10 +103,10 @@ impl AnomalyDetector {
             if z_score > threshold {
                 anomalies.push(Anomaly {
                     row: idx + 1, // +1 for header
-                    column: format!("col_{}", column),
+                    column: format!("col_{column}"),
                     value: value.to_string(),
                     score: z_score,
-                    reason: format!("Z-score {:.2} exceeds threshold {:.2}", z_score, threshold),
+                    reason: format!("Z-score {z_score:.2} exceeds threshold {threshold:.2}"),
                 });
             }
         }
@@ -116,7 +116,7 @@ impl AnomalyDetector {
 
     fn detect_iqr(&self, values: &[f64], column: usize, multiplier: f64) -> Result<Vec<Anomaly>> {
         let mut sorted = values.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let q1_idx = sorted.len() / 4;
         let q3_idx = (sorted.len() * 3) / 4;
@@ -132,14 +132,14 @@ impl AnomalyDetector {
         for (idx, value) in values.iter().enumerate() {
             if *value < lower_bound || *value > upper_bound {
                 let reason = if *value < lower_bound {
-                    format!("Value {:.2} below lower bound {:.2}", value, lower_bound)
+                    format!("Value {value:.2} below lower bound {lower_bound:.2}")
                 } else {
-                    format!("Value {:.2} above upper bound {:.2}", value, upper_bound)
+                    format!("Value {value:.2} above upper bound {upper_bound:.2}")
                 };
 
                 anomalies.push(Anomaly {
                     row: idx + 1,
-                    column: format!("col_{}", column),
+                    column: format!("col_{column}"),
                     value: value.to_string(),
                     score: if *value < lower_bound {
                         (lower_bound - value) / iqr
@@ -162,7 +162,7 @@ impl AnomalyDetector {
         upper: f64,
     ) -> Result<Vec<Anomaly>> {
         let mut sorted = values.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let lower_idx = (sorted.len() as f64 * lower / 100.0) as usize;
         let upper_idx = (sorted.len() as f64 * upper / 100.0) as usize;
@@ -175,10 +175,10 @@ impl AnomalyDetector {
             if *value < lower_bound || *value > upper_bound {
                 anomalies.push(Anomaly {
                     row: idx + 1,
-                    column: format!("col_{}", column),
+                    column: format!("col_{column}"),
                     value: value.to_string(),
                     score: 1.0,
-                    reason: format!("Value outside {:.1}%-{:.1}% percentile range", lower, upper),
+                    reason: format!("Value outside {lower:.1}%-{upper:.1}% percentile range"),
                 });
             }
         }

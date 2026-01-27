@@ -7,12 +7,12 @@ use std::sync::Arc;
 use arrow::array::{ArrayRef, BooleanArray, Float64Array, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
-use parquet::arrow::ArrowWriter;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
 
 use apache_avro::{
-    Reader as AvroReader, Schema as AvroSchema, Writer as AvroWriter, types::Value as AvroValue,
+    types::Value as AvroValue, Reader as AvroReader, Schema as AvroSchema, Writer as AvroWriter,
 };
 
 use crate::csv_handler::CellRange;
@@ -20,17 +20,18 @@ use crate::helpers::{default_column_names, filter_by_range, max_column_count};
 use crate::traits::{DataReader, DataWriteOptions, DataWriter, FileHandler, SchemaProvider};
 
 /// Handler for Parquet files
+#[derive(Default)]
 pub struct ParquetHandler;
 
 impl ParquetHandler {
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Read Parquet file into `Vec<Vec<String>>`
     pub fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
         let file =
-            File::open(path).with_context(|| format!("Failed to open Parquet file: {}", path))?;
+            File::open(path).with_context(|| format!("Failed to open Parquet file: {path}"))?;
 
         let builder = ParquetRecordBatchReaderBuilder::try_new(file)?;
         let reader = builder.build()?;
@@ -59,7 +60,7 @@ impl ParquetHandler {
     /// Read Parquet file with column names as first row
     pub fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
         let file =
-            File::open(path).with_context(|| format!("Failed to open Parquet file: {}", path))?;
+            File::open(path).with_context(|| format!("Failed to open Parquet file: {path}"))?;
 
         let builder = ParquetRecordBatchReaderBuilder::try_new(file)?;
         let schema = builder.schema().clone();
@@ -128,8 +129,8 @@ impl ParquetHandler {
 
         let batch = RecordBatch::try_new(schema.clone(), columns)?;
 
-        let file = File::create(path)
-            .with_context(|| format!("Failed to create Parquet file: {}", path))?;
+        let file =
+            File::create(path).with_context(|| format!("Failed to create Parquet file: {path}"))?;
 
         let props = WriterProperties::builder().build();
         let mut writer = ArrowWriter::try_new(file, schema, Some(props))?;
@@ -142,7 +143,7 @@ impl ParquetHandler {
     /// Get schema information from Parquet file
     pub fn get_schema(&self, path: &str) -> Result<Vec<(String, String)>> {
         let file =
-            File::open(path).with_context(|| format!("Failed to open Parquet file: {}", path))?;
+            File::open(path).with_context(|| format!("Failed to open Parquet file: {path}"))?;
 
         let builder = ParquetRecordBatchReaderBuilder::try_new(file)?;
         let schema = builder.schema();
@@ -162,55 +163,50 @@ impl ParquetHandler {
         }
 
         match array.data_type() {
-            DataType::Utf8 => {
-                let arr = array.as_any().downcast_ref::<StringArray>().unwrap();
-                arr.value(idx).to_string()
-            }
-            DataType::LargeUtf8 => {
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<arrow::array::LargeStringArray>()
-                    .unwrap();
-                arr.value(idx).to_string()
-            }
+            DataType::Utf8 => array
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .map(|arr| arr.value(idx).to_string())
+                .unwrap_or_else(|| format!("{:?}", array)),
+            DataType::LargeUtf8 => array
+                .as_any()
+                .downcast_ref::<arrow::array::LargeStringArray>()
+                .map(|arr| arr.value(idx).to_string())
+                .unwrap_or_else(|| format!("{:?}", array)),
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
-                let arr = array.as_any().downcast_ref::<Int64Array>();
-                if let Some(a) = arr {
-                    a.value(idx).to_string()
-                } else {
-                    // Try other int types
-                    format!("{:?}", array)
-                }
+                array
+                    .as_any()
+                    .downcast_ref::<Int64Array>()
+                    .map(|a| a.value(idx).to_string())
+                    .unwrap_or_else(|| format!("{:?}", array))
             }
-            DataType::Float32 | DataType::Float64 => {
-                let arr = array.as_any().downcast_ref::<Float64Array>();
-                if let Some(a) = arr {
-                    a.value(idx).to_string()
-                } else {
-                    format!("{:?}", array)
-                }
-            }
-            DataType::Boolean => {
-                let arr = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-                arr.value(idx).to_string()
-            }
+            DataType::Float32 | DataType::Float64 => array
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .map(|a| a.value(idx).to_string())
+                .unwrap_or_else(|| format!("{:?}", array)),
+            DataType::Boolean => array
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .map(|arr| arr.value(idx).to_string())
+                .unwrap_or_else(|| format!("{:?}", array)),
             _ => format!("{:?}", array.data_type()),
         }
     }
 }
 
 /// Handler for Avro files
+#[derive(Default)]
 pub struct AvroHandler;
 
 impl AvroHandler {
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 
     /// Read Avro file into `Vec<Vec<String>>`
     pub fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
-        let file =
-            File::open(path).with_context(|| format!("Failed to open Avro file: {}", path))?;
+        let file = File::open(path).with_context(|| format!("Failed to open Avro file: {path}"))?;
 
         let reader = AvroReader::new(file)?;
         let mut all_rows: Vec<Vec<String>> = Vec::new();
@@ -231,8 +227,7 @@ impl AvroHandler {
 
     /// Read Avro file with field names as first row
     pub fn read_with_headers(&self, path: &str) -> Result<Vec<Vec<String>>> {
-        let file =
-            File::open(path).with_context(|| format!("Failed to open Avro file: {}", path))?;
+        let file = File::open(path).with_context(|| format!("Failed to open Avro file: {path}"))?;
 
         let reader = AvroReader::new(file)?;
         let mut all_rows: Vec<Vec<String>> = Vec::new();
@@ -292,7 +287,7 @@ impl AvroHandler {
         let schema = AvroSchema::parse_str(&schema_json)?;
 
         let file =
-            File::create(path).with_context(|| format!("Failed to create Avro file: {}", path))?;
+            File::create(path).with_context(|| format!("Failed to create Avro file: {path}"))?;
 
         {
             let mut writer = AvroWriter::new(&schema, file);
@@ -319,8 +314,7 @@ impl AvroHandler {
 
     /// Get schema information from Avro file
     pub fn get_schema(&self, path: &str) -> Result<Vec<(String, String)>> {
-        let file =
-            File::open(path).with_context(|| format!("Failed to open Avro file: {}", path))?;
+        let file = File::open(path).with_context(|| format!("Failed to open Avro file: {path}"))?;
 
         let reader = AvroReader::new(file)?;
 
