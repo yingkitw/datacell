@@ -1,5 +1,4 @@
 //! Generate example files in various formats
-//! Run with: cargo test --test generate_examples -- --ignored
 
 use datacell::{AvroHandler, ExcelHandler, ParquetHandler, WriteOptions};
 use std::fs;
@@ -15,7 +14,6 @@ fn read_csv(name: &str) -> Vec<Vec<String>> {
 }
 
 #[test]
-#[ignore] // Run manually to generate example files
 fn generate_parquet_examples() {
     let handler = ParquetHandler::new();
 
@@ -48,7 +46,6 @@ fn generate_parquet_examples() {
 }
 
 #[test]
-#[ignore] // Run manually to generate example files
 fn generate_avro_examples() {
     let handler = AvroHandler::new();
 
@@ -81,7 +78,6 @@ fn generate_avro_examples() {
 }
 
 #[test]
-#[ignore] // Run manually to generate example files
 fn generate_excel_examples() {
     let handler = ExcelHandler::new();
 

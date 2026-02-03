@@ -1,4 +1,4 @@
-//! xls-rs - A CLI tool and MCP server for reading, writing, and converting spreadsheet files
+//! datacell - A CLI tool and MCP server for reading, writing, and converting spreadsheet files
 //!
 //! Supports CSV, Excel (xlsx/xls), ODS, Parquet, and Avro formats with formula evaluation.
 
@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use xls_rs::cli::{Cli, CommandHandler, DefaultCommandHandler};
+use datacell::cli::{Cli, CommandHandler, DefaultCommandHandler};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

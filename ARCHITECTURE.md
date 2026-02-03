@@ -62,11 +62,12 @@ datacell/
 │   ├── timeseries.rs        # Time series resampling, rolling windows
 │   ├── geospatial.rs        # Distance calculations
 │   ├── anomaly.rs           # Anomaly detection (zscore, IQR, percentile)
-│   ├── encryption.rs        # File encryption (XOR, AES256)
+│   ├── encryption.rs        # File encryption (XOR, AES256) with secure key management
 │   ├── workflow.rs          # Pipeline/workflow execution
 │   ├── api.rs               # REST API server (placeholder)
 │   ├── plugins.rs           # Plugin function registry
-│   └── streaming.rs         # Streaming data processing
+│   ├── streaming.rs         # Streaming data processing
+│   └── helpers.rs           # Utility functions (validation, bounds checking, error context)
 │
 ├── tests/
 │   ├── test_basic.rs        # Basic integration tests
@@ -197,6 +198,83 @@ converter.convert("data.xlsx", "data.parquet", None)?;
                     └──────────────┘
 ```
 
+## Security
+
+### Key Management (Feb 2026)
+
+[encryption.rs](src/encryption.rs) and [cli/commands/advanced.rs](src/cli/commands/advanced.rs):
+
+**Secure Encryption Key Handling:**
+- No hardcoded encryption keys (security requirement)
+- `--key-file` parameter for key file input
+- `DATACELL_ENCRYPTION_KEY` environment variable support
+- Minimum 16-byte key length validation
+- Automatic key loading with proper error handling
+
+**File Path Validation:**
+- Directory traversal prevention (`..` and `~` pattern detection)
+- Absolute path warnings
+- Input/output path sanitization
+
+**Key Generation:**
+```bash
+# Generate secure encryption key
+openssl rand -base64 32 > encryption.key
+
+# Use with datacell
+datacell encrypt --input data.csv --output encrypted.csv --algorithm aes256 --key-file encryption.key
+```
+
+**Environment Variable Method:**
+```bash
+export DATACELL_ENCRYPTION_KEY="your-32-byte-min-key-here"
+datacell encrypt --input data.csv --output encrypted.csv --algorithm aes256
+```
+
+### Error Context Helpers
+
+[helpers.rs](src/helpers.rs) provides utilities for better error handling:
+
+**Validation Functions:**
+- `validate_row_index(data, row)` - Bounds checking for row access
+- `validate_column_index(data, col)` - Bounds checking for column access
+- `validate_file_path(path)` - Path sanitization
+
+**Safe Numeric Parsing:**
+- `parse_safe_f64(value, min, max)` - Float parsing with NaN/Infinity checks
+- `parse_safe_i64(value, min, max)` - Integer parsing with bounds
+- `parse_safe_usize(value, max)` - Index parsing with negative value prevention
+
+**Error Context Wrappers:**
+- `with_file_context(result, path)` - Add file path to errors
+- `with_cell_context(result, row, col)` - Add row/column to errors
+- `with_full_context(result, path, row, col)` - Complete context information
+
+### Format Detection Improvements
+
+[converter.rs](src/converter.rs) now uses trait-based format detection:
+
+- `DefaultFormatDetector` implements `FormatDetector` trait
+- Centralized format validation
+- Better error messages for unsupported formats
+- Format validation before conversion operations
+
+### Temp File Cleanup
+
+[converter.rs](src/converter.rs) improved temp file handling:
+
+- Proper cleanup on both success and error paths
+- Error context for temp file operations
+- No silent error suppression (removed `.ok()` calls)
+
+### Division by Zero Protection
+
+[formula/functions.rs](src/formula/functions.rs) includes:
+
+- Explicit division by zero check in arithmetic evaluation
+- Proper error messages for division operations
+- Validation in `evaluate_simple_arithmetic()`
+
 ## Design Principles
 
 ### DRY (Don't Repeat Yourself)
@@ -244,7 +322,7 @@ converter.convert("data.xlsx", "data.parquet", None)?;
 [anomaly.rs](src/anomaly.rs): Z-score, IQR, percentile methods
 
 ### Encryption
-[encryption.rs](src/encryption.rs): XOR, AES256 encryption for data files
+[encryption.rs](src/encryption.rs): XOR, AES256 encryption for data files with secure key management (key file and environment variable support)
 
 ### Streaming
 [streaming.rs](src/streaming.rs): Process large files incrementally

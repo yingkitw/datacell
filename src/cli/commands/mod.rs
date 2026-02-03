@@ -6,15 +6,16 @@
 //! - `pandas`: Pandas-style operations (head, tail, join, groupby, etc.)
 //! - `advanced`: Advanced features (validate, chart, batch, etc.)
 
-pub mod io;
-pub mod transform;
-pub mod pandas;
 pub mod advanced;
+pub mod advanced_handler;
+pub mod io;
+pub mod pandas;
+pub mod transform;
 
+pub use advanced_handler::AdvancedCommandHandler;
 pub use io::IoCommandHandler;
-pub use transform::TransformCommandHandler;
 pub use pandas::PandasCommandHandler;
-pub use advanced::AdvancedCommandHandler;
+pub use transform::TransformCommandHandler;
 
 use anyhow::Result;
 

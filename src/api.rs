@@ -16,7 +16,7 @@
 //! }
 //! ```
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "api")]

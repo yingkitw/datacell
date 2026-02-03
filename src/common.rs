@@ -92,6 +92,7 @@ pub mod validation {
 pub mod transform {
     use super::validation::validate_column_index;
     use anyhow::Result;
+    use rayon::prelude::*;
 
     /// Apply a transformation function to a column
     pub fn apply_to_column<F>(
@@ -114,6 +115,26 @@ pub mod transform {
         Ok(())
     }
 
+    /// Apply a transformation function to a column in parallel
+    pub fn apply_to_column_parallel<F>(
+        data: &mut [Vec<String>],
+        col_idx: usize,
+        transform_fn: F,
+    ) -> Result<()>
+    where
+        F: Fn(&str) -> String + Sync + Send,
+    {
+        validate_column_index(data, col_idx)?;
+
+        data.par_iter_mut().skip(1).for_each(|row| {
+            if let Some(cell) = row.get_mut(col_idx) {
+                *cell = transform_fn(cell);
+            }
+        });
+
+        Ok(())
+    }
+
     /// Filter data based on a predicate function
     pub fn filter_data<F>(data: &[Vec<String>], predicate: F) -> Vec<Vec<String>>
     where
@@ -125,6 +146,26 @@ pub mod transform {
 
         let mut result = vec![data[0].clone()]; // Keep header
         result.extend(data.iter().skip(1).filter(|row| predicate(row)).cloned());
+        result
+    }
+
+    /// Filter data based on a predicate function in parallel
+    pub fn filter_data_parallel<F>(data: &[Vec<String>], predicate: F) -> Vec<Vec<String>>
+    where
+        F: Fn(&[String]) -> bool + Sync + Send,
+    {
+        if data.is_empty() {
+            return Vec::new();
+        }
+
+        let mut result = vec![data[0].clone()]; // Keep header
+        let filtered: Vec<Vec<String>> = data
+            .par_iter()
+            .skip(1)
+            .filter(|row| predicate(row))
+            .cloned()
+            .collect();
+        result.extend(filtered);
         result
     }
 
@@ -147,6 +188,33 @@ pub mod transform {
         let mut data_rows: Vec<&mut Vec<String>> = data.iter_mut().skip(1).collect();
 
         data_rows.sort_by(|a, b| {
+            let a_val = a.get(col_idx).map(|s| s.as_str()).unwrap_or("");
+            let b_val = b.get(col_idx).map(|s| s.as_str()).unwrap_or("");
+            compare_fn(a_val, b_val)
+        });
+
+        Ok(())
+    }
+
+    /// Sort data by column with custom comparison in parallel
+    pub fn sort_by_column_parallel<F>(
+        data: &mut [Vec<String>],
+        col_idx: usize,
+        compare_fn: F,
+    ) -> Result<()>
+    where
+        F: Fn(&str, &str) -> std::cmp::Ordering + Sync + Send,
+    {
+        validate_column_index(data, col_idx)?;
+
+        if data.len() <= 1 {
+            return Ok(());
+        }
+
+        let _header = data[0].clone();
+        let mut data_rows: Vec<&mut Vec<String>> = data.iter_mut().skip(1).collect();
+
+        data_rows.par_sort_by(|a, b| {
             let a_val = a.get(col_idx).map(|s| s.as_str()).unwrap_or("");
             let b_val = b.get(col_idx).map(|s| s.as_str()).unwrap_or("");
             compare_fn(a_val, b_val)

@@ -1,12 +1,12 @@
 [package]
-name = "xls-rs"
+name = "datacell"
 version = "0.1.5"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/yingkitw/xls-rs"
+repository = "https://github.com/yingkitw/datacell"
 readme = "README.md"
-homepage = "https://github.com/yingkitw/xls-rs"
-documentation = "https://docs.rs/xls-rs"
+homepage = "https://github.com/yingkitw/datacell"
+documentation = "https://docs.rs/datacell"
 keywords = ["csv", "excel", "spreadsheet", "parquet", "cli"]
 categories = [
     "command-line-utilities",
@@ -22,15 +22,15 @@ data transformation, and comprehensive analytics capabilities.
 """
 
 [[bin]]
-name = "xls-rs"
+name = "datacell"
 path = "src/main.rs"
 
 [lib]
-name = "xls_rs"
+name = "datacell"
 path = "src/lib.rs"
 
 [dependencies]
-rmcp = { version = "0.12", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "0.14", features = ["server", "transport-io", "macros"] }
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4.5", features = ["derive"] }
 chrono = "0.4"
@@ -50,6 +50,7 @@ toml = "0.8"
 dirs = "5.0"
 glob = "0.3.3"
 clap_complete = "4.5.65"
+rayon = "1.10"
 
 # Optional API server dependencies
 axum = { version = "0.7", optional = true }

@@ -18,7 +18,7 @@ pub use handler::DefaultCommandHandler;
 
 /// CLI structure
 #[derive(Parser)]
-#[command(name = "xls-rs")]
+#[command(name = "datacell")]
 #[command(
     about = "A CLI tool for reading, writing, converting spreadsheet files with formula support",
     version = env!("CARGO_PKG_VERSION")
@@ -489,6 +489,8 @@ pub enum Commands {
         output: String,
         #[arg(short, long)]
         algorithm: String,
+        #[arg(short, long)]
+        key_file: Option<String>,
     },
 
     /// Decrypt file
@@ -497,6 +499,8 @@ pub enum Commands {
         input: String,
         #[arg(short, long)]
         output: String,
+        #[arg(short, long)]
+        key_file: Option<String>,
     },
 
     /// Batch process multiple files

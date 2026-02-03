@@ -1,4 +1,4 @@
-//! xls-rs - A library for reading, writing, and converting spreadsheet files
+//! datacell - A library for reading, writing, and converting spreadsheet files
 //!
 //! Supports CSV, Excel (xlsx/xls), ODS, Parquet, and Avro formats with formula evaluation.
 
@@ -28,9 +28,11 @@ pub mod mocks;
 pub mod operations;
 pub mod plugins;
 pub mod profiling;
+pub mod profiling_handler;
 pub mod quality;
 pub mod streaming;
 pub mod text_analysis;
+pub mod text_analysis_handler;
 pub mod timeseries;
 pub mod traits;
 pub mod types;
@@ -56,9 +58,14 @@ pub use format_detector::DefaultFormatDetector;
 pub use formula::{FormulaEvaluator, FormulaResult};
 pub use geospatial::{Coordinate, GeospatialCalculator};
 pub use handler_registry::HandlerRegistry;
-pub use helpers::{default_column_names, filter_by_range, matches_extension, max_column_count};
+pub use helpers::{
+    default_column_names, filter_by_range, matches_extension, max_column_count,
+    parse_safe_f64, parse_safe_i64, parse_safe_usize,
+    with_cell_context, with_file_context, with_full_context,
+    validate_row_index, validate_column_index,
+};
 pub use lineage::{LineageNode, LineageTracker};
-pub use mcp::XlsRsMcpServer;
+pub use mcp::DatacellMcpServer;
 pub use operations::{
     AggFunc, DataOperations, JoinType, NoProgress, ProgressCallback, SortOrder, StderrProgress,
 };

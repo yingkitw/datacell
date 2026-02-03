@@ -1,5 +1,29 @@
 # datacell TODO
 
+## Recent Updates (Feb 3, 2026)
+
+- [x] **Parallel Processing Implementation** using Rayon
+  - Added rayon dependency for multi-threaded data processing
+  - Implemented parallel column transformations (`apply_to_column_parallel`)
+  - Implemented parallel data filtering (`filter_data_parallel`)
+  - Implemented parallel sorting (`sort_by_column_parallel`)
+  - Parallelized batch file processing (convert, sort, filter, dedupe, normalize)
+  - Parallelized anomaly detection (Z-score, IQR, Percentile methods)
+  - Significant performance improvements for large datasets
+- [x] Security improvements: Fixed hardcoded encryption key vulnerability
+  - Added `--key-file` parameter to encrypt/decrypt CLI commands
+  - Added support for `DATACELL_ENCRYPTION_KEY` environment variable
+  - Removed insecure hardcoded default key
+- [x] Added input validation for file paths (directory traversal prevention)
+- [x] Improved temp file cleanup with proper error handling
+- [x] Refactored format detection to use FormatDetector trait
+- [x] Added bounds checking utilities for safe numeric parsing
+- [x] Added error context helpers for better debugging
+- [x] Enabled example generation tests (3 new tests: parquet, avro, excel)
+- [x] All 192 tests passing (including newly enabled tests)
+- [x] Zero compilation warnings
+- [x] Updated documentation (README.md, ARCHITECTURE.md)
+
 ## Recent Updates (Jan 2026)
 
 - [x] Fixed all compilation errors
@@ -116,6 +140,41 @@
 - [x] Real-time data streaming support
 - [x] Data lineage tracking
 - [x] Automated data quality reports
+
+## High Priority Improvements (Feb 2026)
+- [x] Fix hardcoded encryption key security issue (src/cli/commands/advanced.rs:174, 187)
+  - Added `--key-file` parameter to encrypt/decrypt CLI commands
+  - Added support for `DATACELL_ENCRYPTION_KEY` environment variable
+  - Removed hardcoded default key, now requires explicit key source
+- [x] Add proper temp file cleanup with error handling in converter.rs (line 87)
+  - Replaced `.ok()` error suppression with proper cleanup function
+  - Added error context messages for temp file operations
+  - Ensured temp files are cleaned up even on error paths
+- [x] Add division by zero protection in formula evaluator
+  - Verified existing protection in src/formula/functions.rs:333-335
+  - Division by zero now returns proper error message
+- [x] Add input validation for file paths (prevent directory traversal attacks)
+  - Added `validate_file_path()` method to AdvancedCommandHandler
+  - Checks for dangerous patterns (`..`, `~`)
+  - Warns about absolute paths
+- [x] Refactor format detection in converter.rs to use FormatDetector trait
+  - Created `DefaultFormatDetector` struct implementing `FormatDetector` trait
+  - Replaced manual string matching with trait-based detection
+  - Added format validation in convert() method
+- [x] Add bounds checking for numeric parsing operations
+  - Added `parse_safe_f64()`, `parse_safe_i64()`, `parse_safe_usize()` to helpers.rs
+  - Includes NaN/Infinity checking for floats
+  - Includes min/max validation for all types
+- [x] Improve error messages with context (file, row, column)
+  - Added `with_file_context()`, `with_cell_context()`, `with_full_context()` helpers
+  - Added `validate_row_index()`, `validate_column_index()` helpers
+  - All helpers exported from lib.rs for use across codebase
+
+### Medium Priority Improvements
+- [ ] Add CSV delimiter injection protection (quoted newlines handling)
+- [ ] Remove remaining silent error suppression (search for `.ok()` calls)
+- [ ] Add streaming support for large file operations
+- [ ] Add integration tests for security improvements
 
 ## Recently Completed
 - [x] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`

@@ -4,7 +4,10 @@
 //! to specialized command handlers based on the command type.
 
 use crate::cli::{
-    commands::{advanced::AdvancedCommandHandler, io::IoCommandHandler, pandas::PandasCommandHandler, transform::TransformCommandHandler},
+    commands::{
+        io::IoCommandHandler, pandas::PandasCommandHandler, transform::TransformCommandHandler,
+        AdvancedCommandHandler,
+    },
     Commands,
 };
 use anyhow::{Context, Result};
@@ -99,7 +102,9 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 find,
                 replace,
                 column,
-            } => self.transform.handle_replace(input, output, find, replace, column),
+            } => self
+                .transform
+                .handle_replace(input, output, find, replace, column),
 
             Commands::Dedupe {
                 input,
@@ -155,7 +160,9 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 output,
                 column,
                 target_type,
-            } => self.transform.handle_astype(input, output, column, target_type),
+            } => self
+                .transform
+                .handle_astype(input, output, column, target_type),
 
             // Pandas-style commands
             Commands::Head { input, n, format } => self.pandas.handle_head(input, n, format),
@@ -171,7 +178,9 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
 
             Commands::Describe { input, format } => self.pandas.handle_describe(input, format),
 
-            Commands::ValueCounts { input, column } => self.pandas.handle_value_counts(input, column),
+            Commands::ValueCounts { input, column } => {
+                self.pandas.handle_value_counts(input, column)
+            }
 
             Commands::Corr { input, columns } => self.pandas.handle_corr(input, columns),
 
@@ -205,13 +214,12 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 columns,
                 values,
                 agg,
-            } => self.pandas.handle_pivot(input, output, index, columns, values, agg),
+            } => self
+                .pandas
+                .handle_pivot(input, output, index, columns, values, agg),
 
             // Advanced commands
-            Commands::Profile {
-                input,
-                output,
-            } => self.advanced.handle_profile(input, output),
+            Commands::Profile { input, output } => self.advanced.handle_profile(input, output),
 
             Commands::Validate {
                 input,
@@ -227,25 +235,33 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 title,
                 x_column,
                 y_column,
-            } => self.advanced.handle_chart(input, output, chart_type, title, x_column, y_column),
+            } => self
+                .advanced
+                .handle_chart(input, output, chart_type, title, x_column, y_column),
 
             Commands::Encrypt {
                 input,
                 output,
                 algorithm,
-            } => self.advanced.handle_encrypt(input, output, algorithm),
+                key_file,
+            } => self
+                .advanced
+                .handle_encrypt(input, output, algorithm, key_file),
 
             Commands::Decrypt {
                 input,
                 output,
-            } => self.advanced.handle_decrypt(input, output),
+                key_file,
+            } => self.advanced.handle_decrypt(input, output, key_file),
 
             Commands::Batch {
                 inputs,
                 output_dir,
                 operation,
                 args,
-            } => self.advanced.handle_batch(inputs, output_dir, operation, args),
+            } => self
+                .advanced
+                .handle_batch(inputs, output_dir, operation, args),
 
             Commands::Plugin {
                 function,
@@ -284,9 +300,11 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 let col_idx = Self::find_column_index(&data, &column)?;
                 validation::validate_column_index(&data, col_idx)?;
 
-                let min_val: f64 = min.parse()
+                let min_val: f64 = min
+                    .parse()
                     .with_context(|| format!("Invalid min value: {}", min))?;
-                let max_val: f64 = max.parse()
+                let max_val: f64 = max
+                    .parse()
                     .with_context(|| format!("Invalid max value: {}", max))?;
 
                 let ops = crate::operations::DataOperations::new();
@@ -353,7 +371,11 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 let filtered = ops.regex_filter(&data, col_idx, &pattern)?;
 
                 converter.write_any_data(&output, &filtered, None)?;
-                println!("Filtered to {} rows; wrote {}", filtered.len().saturating_sub(1), output);
+                println!(
+                    "Filtered to {} rows; wrote {}",
+                    filtered.len().saturating_sub(1),
+                    output
+                );
                 Ok(())
             }
 
