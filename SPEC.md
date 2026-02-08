@@ -217,10 +217,14 @@ xl/worksheets/sheet1.xml     # Worksheet data (one per sheet)
 
 ### Key Implementation Details
 
-The writer lives in `src/excel/xlsx_writer/` with three files:
-- **`mod.rs`** — `XlsxWriter` struct, sheet/row/cell API
+The writer lives in `src/excel/xlsx_writer/` with these modules:
+- **`mod.rs`** — `XlsxWriter` struct, sheet/row/cell API, chart/cond-fmt/sparkline integration
 - **`types.rs`** — `CellData`, `RowData`, `SheetData` types
-- **`xml_gen.rs`** — All XML generation functions
+- **`xml_gen.rs`** — Core XML generation (content types, workbook, worksheets, styles, theme)
+- **`chart_xml.rs`** — OOXML DrawingML chart generation (bar, column, line, area, pie, scatter, doughnut)
+- **`cond_fmt_xml.rs`** — Conditional formatting XML (color scales, data bars, icon sets, formula/cell-value rules)
+- **`sparkline_xml.rs`** — Sparkline XML via x14 extension namespace (line, column, win/loss)
+- **`streaming.rs`** — `StreamingXlsxWriter` for row-by-row large file writing
 
 Critical OOXML elements that Excel/Numbers require (discovered by byte-level comparison with openpyxl output):
 - `<sheetPr>` with `<outlinePr>` and `<pageSetUpPr/>`
@@ -240,11 +244,13 @@ Critical OOXML elements that Excel/Numbers require (discovered by byte-level com
 - Freeze header row
 - Auto-filter
 - Basic styling (bold, fills, borders, alignment)
+- **Charts** — Bar, column, line, area, pie, scatter, doughnut with custom colors, legends, axis titles, multi-series
+- **Sparklines** — Line, column, win/loss in-cell mini charts with markers
+- **Conditional formatting** — Two/three-color scales, data bars, icon sets, formula-based, cell-value rules
+- **Streaming** — `StreamingXlsxWriter` for incremental row-by-row writing of large files
+- **CSV injection protection** — `sanitize_csv_value()` / `sanitize_csv_row()` for safe CSV output
 
 ### Not Yet Implemented
-- Charts (requires `xl/drawings/`, `xl/charts/`, complex relationship XML)
-- Sparklines
-- Conditional formatting (color scales, data bars, icon sets)
 - Merged cells
 - Data validation dropdowns
 - Pivot tables

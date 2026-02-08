@@ -45,6 +45,16 @@ pub fn add_content_types<W: Write + Seek>(
     zip: &mut ZipWriter<W>,
     sheet_count: usize,
 ) -> Result<()> {
+    let no_charts = vec![false; sheet_count];
+    add_content_types_ext(zip, sheet_count, &no_charts)
+}
+
+/// Add [Content_Types].xml with optional chart/drawing content types
+pub fn add_content_types_ext<W: Write + Seek>(
+    zip: &mut ZipWriter<W>,
+    sheet_count: usize,
+    chart_flags: &[bool],
+) -> Result<()> {
     let mut xml = String::with_capacity(1024);
     xml.push_str(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
     xml.push_str(r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#);
@@ -59,6 +69,10 @@ pub fn add_content_types<W: Write + Seek>(
     }
     xml.push_str(r#"<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>"#);
     xml.push_str(r#"<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>"#);
+
+    // Chart and drawing content types
+    add_chart_content_types(&mut xml, sheet_count, chart_flags);
+
     xml.push_str(r#"</Types>"#);
 
     let opts = FileOptions::<()>::default()
@@ -233,6 +247,7 @@ pub fn add_worksheet<W: Write + Seek>(
     idx: usize,
     sheet: &SheetData,
     options: &WriteOptions,
+    has_chart: bool,
 ) -> Result<()> {
     let max_row = sheet.rows.len();
     let max_col = sheet.rows.iter().map(|r| r.cells.len()).max().unwrap_or(0);
@@ -331,14 +346,60 @@ pub fn add_worksheet<W: Write + Seek>(
         ));
     }
 
+    // Conditional formatting
+    if !sheet.conditional_formats.is_empty() {
+        let (cf_xml, _dxf_entries) =
+            super::cond_fmt_xml::generate_conditional_formatting_xml(&sheet.conditional_formats, 0);
+        xml.push_str(&cf_xml);
+    }
+
     // Page margins (required by Excel/Numbers)
     xml.push_str(r#"<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/>"#);
 
+    // Drawing reference (for charts)
+    if has_chart {
+        xml.push_str(r#"<drawing r:id="rId1"/>"#);
+    }
+
+    // Sparklines (must come after pageMargins, before closing worksheet)
+    if !sheet.sparkline_groups.is_empty() {
+        let sparkline_xml =
+            super::sparkline_xml::generate_sparkline_ext_xml(&sheet.sparkline_groups, &sheet.name);
+        xml.push_str(&sparkline_xml);
+    }
+
     xml.push_str(r#"</worksheet>"#);
+
+    // If we have a drawing reference, we need the r: namespace
+    if has_chart {
+        // Replace the worksheet opening tag to include the r: namespace
+        xml = xml.replacen(
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#,
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">"#,
+            1,
+        );
+    }
 
     let opts = FileOptions::<()>::default()
         .compression_method(zip::CompressionMethod::Deflated);
     zip.start_file(&format!("xl/worksheets/sheet{}.xml", idx + 1), opts)?;
     zip.write_all(xml.as_bytes())?;
     Ok(())
+}
+
+/// Add content types for chart/drawing parts
+pub fn add_chart_content_types(xml: &mut String, _sheet_count: usize, charts: &[bool]) {
+    for (idx, has_chart) in charts.iter().enumerate() {
+        if *has_chart {
+            let n = idx + 1;
+            xml.push_str(&format!(
+                r#"<Override PartName="/xl/charts/chart{}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>"#,
+                n
+            ));
+            xml.push_str(&format!(
+                r#"<Override PartName="/xl/drawings/drawing{}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>"#,
+                n
+            ));
+        }
+    }
 }

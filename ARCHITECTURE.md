@@ -484,16 +484,13 @@ Our writer uses only the `zip` crate to produce ECMA-376 compliant XLSX files. T
 
 ```
 src/excel/xlsx_writer/
-├── mod.rs       # XlsxWriter: public API (add_sheet, add_row, save)
-├── types.rs     # CellData (String|Number|Formula|Empty), RowData, SheetData
-└── xml_gen.rs   # XML generation for each XLSX part:
-                 #   add_content_types  → [Content_Types].xml
-                 #   add_rels           → _rels/.rels
-                 #   add_workbook       → xl/workbook.xml
-                 #   add_workbook_rels  → xl/_rels/workbook.xml.rels
-                 #   add_styles         → xl/styles.xml
-                 #   add_theme          → xl/theme/theme1.xml
-                 #   add_worksheet      → xl/worksheets/sheetN.xml
+├── mod.rs            # XlsxWriter: public API (add_sheet, add_row, set_chart, save)
+├── types.rs          # CellData (String|Number|Formula|Empty), RowData, SheetData
+├── xml_gen.rs        # Core XML generation for each XLSX part
+├── chart_xml.rs      # DrawingML chart XML (bar, column, line, area, pie, scatter, doughnut)
+├── cond_fmt_xml.rs   # Conditional formatting (color scales, data bars, icon sets, formulas)
+├── sparkline_xml.rs  # Sparkline XML via x14 extension namespace
+└── streaming.rs      # StreamingXlsxWriter for row-by-row large file writing
 ```
 
 ### OOXML Compliance
@@ -510,18 +507,20 @@ Getting files to open in Excel and Numbers required matching the spec precisely.
 
 - **26 unit tests** in `xlsx_writer/mod.rs` (cell types, sheet names, column widths, save/load)
 - **8 validation tests** in `tests/test_xlsx_validation.rs` (ZIP structure, XML content, freeze panes, formulas, special characters)
-- **23 integration tests** in `tests/test_excel.rs` (round-trip write/read, styled export, charts error handling)
+- **23 integration tests** in `tests/test_excel.rs` (round-trip write/read, styled export, chart generation)
+- **23 advanced tests** in `tests/test_advanced_excel.rs` (charts for all 7 types, conditional formatting, sparklines, CSV injection, combined features)
+- **Unit tests** in `cond_fmt_xml.rs` and `sparkline_xml.rs` for XML generation correctness
 
 ### What's Not Implemented
 
-Charts, sparklines, conditional formatting, merged cells, data validation, and pivot tables all require additional XML parts and relationships that we haven't built yet. These are documented as known limitations and return clear error messages.
+Merged cells, data validation dropdowns, and pivot tables require additional XML parts that we haven't built yet.
 
 ## Future Improvements
 
 - Full REST API server implementation (requires HTTP framework choice)
 - More Excel formula functions
-- Conditional formatting in Excel output
-- Chart generation (requires xl/drawings/ and xl/charts/ XML)
+- Merged cells support
+- Data validation dropdowns
+- Pivot tables
 - Query optimizer for complex operations
-- Parallel processing for large datasets
 - Caching layer for repeated operations

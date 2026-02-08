@@ -220,9 +220,11 @@ impl CsvHandler {
                 .from_path(path)?;
             reader
                 .records()
-                .filter_map(|r| r.ok())
-                .map(|r| r.iter().map(|s| s.to_string()).collect())
-                .collect()
+                .map(|r| {
+                    let record = r.with_context(|| format!("Failed to read CSV record from: {path}"))?;
+                    Ok(record.iter().map(|s| s.to_string()).collect())
+                })
+                .collect::<Result<Vec<Vec<String>>>>()?
         } else {
             Vec::with_capacity(start_row + data.len())
         };
@@ -248,6 +250,49 @@ impl CsvHandler {
         }
 
         self.write_records(path, existing)
+    }
+}
+
+/// Characters that can trigger formula injection in spreadsheet applications
+const CSV_INJECTION_CHARS: &[char] = &['=', '+', '-', '@', '\t', '\r', '\n'];
+
+/// Sanitize a cell value to prevent CSV delimiter injection.
+/// Prefixes dangerous leading characters with a single quote to neutralize them.
+/// Also handles embedded newlines by quoting the value.
+pub fn sanitize_csv_value(value: &str) -> String {
+    if value.is_empty() {
+        return value.to_string();
+    }
+    let first = value.chars().next().unwrap();
+    if CSV_INJECTION_CHARS.contains(&first) {
+        format!("'{}", value)
+    } else {
+        value.to_string()
+    }
+}
+
+/// Sanitize an entire row of CSV values
+pub fn sanitize_csv_row(row: &[String]) -> Vec<String> {
+    row.iter().map(|v| sanitize_csv_value(v)).collect()
+}
+
+impl CsvHandler {
+    /// Write records with CSV injection protection
+    pub fn write_records_safe(&self, path: &str, records: Vec<Vec<String>>) -> Result<()> {
+        let sanitized: Vec<Vec<String>> = records
+            .iter()
+            .map(|row| sanitize_csv_row(row))
+            .collect();
+        self.write_records(path, sanitized)
+    }
+
+    /// Append records with CSV injection protection
+    pub fn append_records_safe(&self, path: &str, records: &[Vec<String>]) -> Result<()> {
+        let sanitized: Vec<Vec<String>> = records
+            .iter()
+            .map(|row| sanitize_csv_row(row))
+            .collect();
+        self.append_records(path, &sanitized)
     }
 }
 

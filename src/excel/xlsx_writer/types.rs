@@ -44,4 +44,6 @@ pub struct SheetData {
     pub name: String,
     pub rows: Vec<RowData>,
     pub column_widths: Vec<f64>,
+    pub conditional_formats: Vec<super::cond_fmt_xml::ConditionalFormat>,
+    pub sparkline_groups: Vec<super::sparkline_xml::SparklineGroup>,
 }

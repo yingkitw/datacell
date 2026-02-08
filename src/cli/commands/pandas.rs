@@ -222,7 +222,13 @@ impl PandasCommandHandler {
         let input_files: Vec<String> = if inputs.contains('*') {
             // Use glob
             glob::glob(&inputs)?
-                .filter_map(|entry| entry.ok())
+                .filter_map(|entry| match entry {
+                    Ok(path) => Some(path),
+                    Err(e) => {
+                        eprintln!("Warning: glob error for pattern '{}': {}", inputs, e);
+                        None
+                    }
+                })
                 .filter(|entry| entry.is_file())
                 .map(|entry| entry.to_string_lossy().to_string())
                 .collect()

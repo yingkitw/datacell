@@ -28,17 +28,27 @@ use zip::ZipWriter;
 
 mod types;
 mod xml_gen;
+pub mod chart_xml;
+pub mod cond_fmt_xml;
+pub mod sparkline_xml;
+pub mod streaming;
 
 pub use types::{CellData, RowData};
+pub use cond_fmt_xml::{ConditionalFormat, ConditionalRule};
+pub use sparkline_xml::{Sparkline, SparklineGroup, SparklineType};
 
 use super::types::WriteOptions;
 use types::SheetData;
 use xml_gen::*;
 
+use super::chart::{ChartConfig};
+
 /// XLSX workbook writer
 pub struct XlsxWriter {
     pub sheets: Vec<SheetData>,
     options: WriteOptions,
+    /// Chart config per sheet index (None = no chart for that sheet)
+    chart_configs: Vec<Option<(ChartConfig, Vec<Vec<String>>)>>,
 }
 
 impl XlsxWriter {
@@ -46,6 +56,7 @@ impl XlsxWriter {
         Self {
             sheets: Vec::new(),
             options: WriteOptions::default(),
+            chart_configs: Vec::new(),
         }
     }
 
@@ -53,7 +64,17 @@ impl XlsxWriter {
         Self {
             sheets: Vec::new(),
             options,
+            chart_configs: Vec::new(),
         }
+    }
+
+    /// Set a chart for the current (last added) sheet
+    pub fn set_chart(&mut self, config: ChartConfig, data: Vec<Vec<String>>) {
+        let sheet_idx = if self.sheets.is_empty() { 0 } else { self.sheets.len() - 1 };
+        while self.chart_configs.len() <= sheet_idx {
+            self.chart_configs.push(None);
+        }
+        self.chart_configs[sheet_idx] = Some((config, data));
     }
 
     /// Add a new sheet to the workbook
@@ -73,8 +94,24 @@ impl XlsxWriter {
             name: name.to_string(),
             rows: Vec::new(),
             column_widths: Vec::new(),
+            conditional_formats: Vec::new(),
+            sparkline_groups: Vec::new(),
         });
         Ok(())
+    }
+
+    /// Add conditional formatting to the current sheet
+    pub fn add_conditional_format(&mut self, format: ConditionalFormat) {
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.conditional_formats.push(format);
+        }
+    }
+
+    /// Add a sparkline group to the current sheet
+    pub fn add_sparkline_group(&mut self, group: SparklineGroup) {
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.sparkline_groups.push(group);
+        }
     }
 
     /// Add a row to the current sheet
@@ -122,8 +159,14 @@ impl XlsxWriter {
     pub fn save<W: Write + Seek>(&self, mut writer: W) -> Result<()> {
         let mut zip = ZipWriter::new(&mut writer);
 
-        // Add [Content_Types].xml
-        add_content_types(&mut zip, self.sheets.len())?;
+        // Determine which sheets have charts
+        let chart_flags: Vec<bool> = (0..self.sheets.len())
+            .map(|i| self.chart_configs.get(i).and_then(|c| c.as_ref()).is_some())
+            .collect();
+        let _has_any_chart = chart_flags.iter().any(|&f| f);
+
+        // Add [Content_Types].xml (with chart content types if needed)
+        add_content_types_ext(&mut zip, self.sheets.len(), &chart_flags)?;
 
         // Add _rels/.rels
         add_rels(&mut zip)?;
@@ -139,7 +182,14 @@ impl XlsxWriter {
 
         // Add worksheets
         for (idx, sheet) in self.sheets.iter().enumerate() {
-            add_worksheet(&mut zip, idx, sheet, &self.options)?;
+            add_worksheet(&mut zip, idx, sheet, &self.options, chart_flags[idx])?;
+        }
+
+        // Add chart files for sheets that have charts
+        for (idx, sheet) in self.sheets.iter().enumerate() {
+            if let Some(Some((config, data))) = self.chart_configs.get(idx) {
+                chart_xml::add_chart_to_zip(&mut zip, idx, config, data, &sheet.name)?;
+            }
         }
 
         // Add xl/theme/theme1.xml

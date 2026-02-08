@@ -14,10 +14,6 @@ A fast, unified CLI tool for spreadsheet and columnar data manipulation.
 ## Installation
 
 ```bash
-# Homebrew (macOS/Linux)
-brew tap yingkitw/datacell
-brew install datacell
-
 # From source
 cargo build --release
 sudo cp target/release/datacell /usr/local/bin/
@@ -167,7 +163,7 @@ We tried several existing Rust crates for XLSX writing and ran into issues:
 | `simple_excel_writer` | Limited feature set, no formula support |
 | `xlsxwriter` (C bindings) | Requires system-level C library, complicates cross-compilation |
 
-Building our own writer using just the `zip` crate gave us full control over the XML output, a smaller dependency footprint, and the ability to fix compatibility issues directly. The trade-off is that advanced features (charts, conditional formatting) require implementing complex XML markup ourselves.
+Building our own writer using just the `zip` crate gave us full control over the XML output, a smaller dependency footprint, and the ability to fix compatibility issues directly. We've since implemented charts, sparklines, conditional formatting, and streaming — all as hand-written OOXML markup.
 
 ### What It Supports
 - **Multiple sheets** with name validation
@@ -176,6 +172,11 @@ Building our own writer using just the `zip` crate gave us full control over the
 - **Freeze headers** (frozen top row)
 - **Auto-filter** for table columns
 - **Basic styling** (bold headers, alignment, borders, fills)
+- **Charts** — Bar, column, line, area, pie, scatter, doughnut with custom colors, legends, axis titles
+- **Sparklines** — Line, column, win/loss in-cell mini charts with optional markers
+- **Conditional formatting** — Color scales, data bars, icon sets, formula-based, cell-value rules
+- **Streaming writer** — `StreamingXlsxWriter` for row-by-row writing of large files
+- **CSV injection protection** — `sanitize_csv_value()` for safe CSV output
 - **Proper OOXML structure** — opens in Excel, Numbers, LibreOffice, Google Sheets
 
 ### Usage
@@ -187,13 +188,16 @@ datacell convert --input data.csv --output data.xlsx
 # Export with styled headers, freeze panes, and auto-filter
 datacell export-styled --input data.csv --output styled.xlsx
 
+# Generate a chart
+datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"
+
 # Write formulas to XLSX
 datacell formula --input data.csv --output result.xlsx --formula "SUM(C2:C100)" --cell "D1"
 ```
 
 ```rust
-// Programmatic usage
-use datacell::excel::xlsx_writer::{XlsxWriter, RowData};
+// Basic XLSX writing
+use datacell::{XlsxWriter, RowData};
 
 let mut writer = XlsxWriter::new();
 writer.add_sheet("Sales")?;
@@ -212,14 +216,56 @@ let file = std::fs::File::create("output.xlsx")?;
 writer.save(&mut std::io::BufWriter::new(file))?;
 ```
 
-### Current Limitations
-- **Charts** — not yet implemented (requires complex XML drawing/chart markup)
-- **Sparklines** — not yet implemented
-- **Conditional formatting** — not yet implemented (color scales, data bars, icon sets)
-- **Merged cells** — not yet implemented
-- **Rich text within cells** — not supported
+```rust
+// Chart generation
+use datacell::{ExcelHandler, ChartConfig, DataChartType};
 
-For charts and visualizations, consider exporting to CSV and using dedicated plotting tools (e.g., Python matplotlib, gnuplot).
+let handler = ExcelHandler::new();
+let data = vec![
+    vec!["Month".into(), "Sales".into()],
+    vec!["Jan".into(), "100".into()],
+    vec!["Feb".into(), "150".into()],
+];
+let config = ChartConfig {
+    chart_type: DataChartType::Column,
+    title: Some("Monthly Sales".into()),
+    category_column: 0,
+    value_columns: vec![1],
+    ..Default::default()
+};
+handler.write_with_chart("chart.xlsx", &data, &config)?;
+```
+
+```rust
+// Streaming large files
+use datacell::StreamingXlsxWriter;
+
+let mut writer = StreamingXlsxWriter::create("big.xlsx", "Data")?;
+writer.write_row(&["ID".into(), "Value".into()])?;
+for i in 0..100_000 {
+    writer.write_row(&[format!("{i}"), format!("{}", i as f64 * 1.5)])?;
+}
+writer.finish()?;
+```
+
+```rust
+// CSV injection protection
+use datacell::{CsvHandler, sanitize_csv_value};
+
+assert_eq!(sanitize_csv_value("=CMD()"), "'=CMD()");  // neutralized
+
+let handler = CsvHandler;
+handler.write_records_safe("safe.csv", vec![
+    vec!["Name".into(), "Formula".into()],
+    vec!["Alice".into(), "=1+1".into()],  // will be written as '=1+1
+])?;
+```
+
+### Current Limitations
+- **Merged cells** — not yet implemented
+- **Data validation dropdowns** — not yet implemented
+- **Pivot tables** — not yet implemented
+- **Rich text within cells** — not supported
 
 ## MCP Server
 

@@ -49,6 +49,7 @@ pub use config::Config;
 pub use converter::Converter;
 pub use csv_handler::{
     CellRange, CellRangeHelper, CsvHandler, StreamingCsvReader, StreamingCsvWriter,
+    sanitize_csv_value, sanitize_csv_row,
 };
 pub use encryption::{DataEncryptor, EncryptionAlgorithm};
 pub use error::{DatacellError, ErrorContext, ErrorKind, ResultExt};
@@ -56,7 +57,11 @@ pub use error_traits::{
     ErrorCategory, ErrorCategoryType, ErrorContextProvider, ErrorSeverity, RecoverableError,
     ToTraitBasedError, TraitBasedError, UserFriendlyError,
 };
-pub use excel::{CellStyle, ChartConfig, DataChartType, ExcelHandler, WriteOptions};
+pub use excel::{
+    CellData, CellStyle, ChartConfig, ConditionalFormat, ConditionalRule, DataChartType,
+    ExcelHandler, RowData, Sparkline, SparklineGroup, SparklineType, StreamingXlsxWriter,
+    WriteOptions, XlsxWriter,
+};
 pub use format_detector::DefaultFormatDetector;
 pub use formula::{FormulaEvaluator, FormulaResult};
 pub use geospatial::{Coordinate, GeospatialCalculator};

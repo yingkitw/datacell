@@ -1,5 +1,41 @@
 # datacell TODO
 
+## Recent Updates (Feb 9, 2026)
+
+- [x] **Chart Generation** - Full OOXML DrawingML chart support
+  - Bar, column, line, area, pie, scatter, doughnut chart types
+  - Multiple series per chart with custom colors
+  - Chart titles, axis titles, legends
+  - Proper XML parts: `xl/charts/`, `xl/drawings/`, relationships
+  - All chart types tested with integration tests
+- [x] **Sparklines** - In-cell mini charts via x14 extension XML
+  - Line, column, win/loss sparkline types
+  - Configurable colors and markers
+  - Multiple sparklines per group
+- [x] **Conditional Formatting** - Full conditional formatting XML support
+  - Two-color and three-color scales
+  - Data bars with custom colors
+  - Icon sets (traffic lights, arrows, etc.)
+  - Formula-based conditions with differential formatting
+  - Cell value conditions (greaterThan, lessThan, etc.)
+- [x] **CSV Injection Protection** - `sanitize_csv_value()` / `sanitize_csv_row()`
+  - Prefixes dangerous leading characters (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`) with single quote
+  - Safe write methods: `write_records_safe()`, `append_records_safe()`
+- [x] **Silent Error Suppression Removal** - Replaced `.ok()` calls with proper error handling
+  - CSV `write_range` now propagates read errors with context
+  - Glob pattern errors now logged with warnings instead of silently dropped
+- [x] **Streaming XLSX Writer** - `StreamingXlsxWriter` for large file operations
+  - Row-by-row API for incremental data writing
+  - Auto-detects number vs string cells
+  - Tested with 10,000+ row datasets
+- [x] **Comprehensive Test Coverage** - 47 new tests across all new capabilities
+  - 20 unit tests for `chart_xml.rs` (all 7 chart types, edge cases, colors, drawing XML)
+  - 9 edge case tests for `cond_fmt_xml.rs` (three-color scale, dxf offset, empty, multi-range)
+  - 6 edge case tests for `sparkline_xml.rs` (win/loss, special chars, multiple groups)
+  - 5 streaming tests (read-back, row_data API, options, empty, finish_to_writer)
+  - 34 integration tests in `test_advanced_excel.rs` (charts, cond fmt, sparklines, CSV injection, streaming read-back, ExcelHandler methods, edge cases)
+- All 388 tests passing, 0 failures
+
 ## Recent Updates (Feb 8, 2026)
 
 - [x] **Rewrote XLSX Writer XML Generation From Scratch**
@@ -161,8 +197,8 @@
 - [x] Improve error handling with trait-based error types
 
 ## Future Enhancements
-- [~] Add sparklines support (placeholder - requires custom XML implementation)
-- [~] Add conditional formatting (placeholder - requires conditional formatting XML)
+- [x] Add sparklines support (line, column, win/loss types with markers)
+- [x] Add conditional formatting (color scales, data bars, icon sets, formula-based)
 - [x] Data validation rules: `datacell validate --input data.csv --rules rules.json`
 - [x] Data profiling: `datacell profile --input data.csv --output profile.json`
 - [x] Time series operations: `datacell resample --input data.csv --interval daily --agg sum`
@@ -207,27 +243,22 @@
   - All helpers exported from lib.rs for use across codebase
 
 ### Medium Priority Improvements
-- [ ] **Chart generation** - Implement XML drawing markup for Excel charts
-  - Bar, column, line, pie charts
-  - Custom colors and legends
-  - Chart positioning and sizing
-- [ ] **Sparklines** - Implement sparkline XML for in-cell mini charts
-- [ ] **Conditional formatting** - Implement conditional formatting rules
-  - Color scales, data bars, icon sets
-  - Formula-based conditions
-- [ ] Add CSV delimiter injection protection (quoted newlines handling)
-- [ ] Remove remaining silent error suppression (search for `.ok()` calls)
-- [ ] Add streaming support for large file operations
-- [ ] Add integration tests for security improvements
+- [x] **Chart generation** - Full OOXML DrawingML chart support (Feb 9, 2026)
+- [x] **Sparklines** - In-cell mini charts via x14 extension XML (Feb 9, 2026)
+- [x] **Conditional formatting** - Color scales, data bars, icon sets, formula-based (Feb 9, 2026)
+- [x] CSV delimiter injection protection with `sanitize_csv_value()` (Feb 9, 2026)
+- [x] Removed silent error suppression `.ok()` calls (Feb 9, 2026)
+- [x] Streaming XLSX writer for large file operations (Feb 9, 2026)
+- [x] Integration tests for all new features (Feb 9, 2026)
 
 ## Recently Completed
 - [x] Custom XLSX writer implementation (Feb 7, 2026)
   - Replaced rust_xlsxwriter dependency with lightweight custom implementation
   - Uses zip crate to create XLSX files with XML content
   - Supports core Excel features: sheets, cells, formulas, styling, column widths
-- [~] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`
-  - **Note**: Currently returns error - chart generation requires complex XML drawing markup
-  - Placeholder implementation in place, awaiting future implementation
+- [x] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`
+  - Full OOXML DrawingML chart support with 7 chart types
+  - Custom colors, legends, axis titles, multi-series
 - [x] Config file support: `datacell config-init` creates `.datacell.toml`
 - [x] Cell styling for Excel: `datacell export-styled --input data.csv --output styled.xlsx`
 - [x] Improved error types with file/row/column context

@@ -112,35 +112,62 @@ impl ExcelHandler {
         Ok(())
     }
 
-    /// Add sparklines using formulas (workaround for rust_xlsxwriter limitation)
-    /// Note: This creates a formula that Excel will render as a sparkline
+    /// Add a sparkline to an Excel file
     pub fn add_sparkline_formula(
         &self,
-        _excel_path: &str,
-        _data_range: &str,
-        _sparkline_cell: &str,
-        _sheet_name: Option<&str>,
+        excel_path: &str,
+        data_range: &str,
+        sparkline_cell: &str,
+        sheet_name: Option<&str>,
     ) -> Result<()> {
-        // Sparklines require complex chart XML which is not yet implemented
-        anyhow::bail!(
-            "Sparklines require chart XML support which is not yet implemented in the custom XLSX writer"
-        );
+        use super::xlsx_writer::{Sparkline, SparklineGroup, SparklineType};
+
+        let mut writer = XlsxWriter::new();
+        let name = sheet_name.unwrap_or("Sheet1");
+        writer.add_sheet(name)?;
+        writer.add_sparkline_group(SparklineGroup {
+            sparkline_type: SparklineType::Line,
+            sparklines: vec![Sparkline {
+                location: sparkline_cell.to_string(),
+                data_range: data_range.to_string(),
+            }],
+            color: "4472C4".to_string(),
+            show_markers: false,
+        });
+
+        let file = File::create(excel_path)?;
+        writer.save(BufWriter::new(file))?;
+        Ok(())
     }
 
-    /// Apply conditional formatting using formulas (workaround)
-    /// Note: This uses Excel formulas for conditional formatting
+    /// Apply conditional formatting to an Excel file
     pub fn apply_conditional_format_formula(
         &self,
-        _excel_path: &str,
-        _range: &str,
-        _condition: &str,
-        _true_format: &super::types::CellStyle,
+        excel_path: &str,
+        range: &str,
+        condition: &str,
+        true_format: &super::types::CellStyle,
         _false_format: Option<&super::types::CellStyle>,
-        _sheet_name: Option<&str>,
+        sheet_name: Option<&str>,
     ) -> Result<()> {
-        anyhow::bail!(
-            "Conditional formatting requires additional XML support which is not yet implemented"
-        );
+        use super::xlsx_writer::{ConditionalFormat, ConditionalRule};
+
+        let mut writer = XlsxWriter::new();
+        let name = sheet_name.unwrap_or("Sheet1");
+        writer.add_sheet(name)?;
+        writer.add_conditional_format(ConditionalFormat {
+            range: range.to_string(),
+            rules: vec![ConditionalRule::Formula {
+                formula: condition.to_string(),
+                bg_color: true_format.bg_color.clone(),
+                font_color: true_format.font_color.clone(),
+                bold: true_format.bold,
+            }],
+        });
+
+        let file = File::create(excel_path)?;
+        writer.save(BufWriter::new(file))?;
+        Ok(())
     }
 
     /// Write data to a specific range in Excel starting at the given row and column

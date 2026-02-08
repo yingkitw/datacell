@@ -65,35 +65,36 @@ impl Default for ChartConfig {
 }
 
 impl ExcelHandler {
+    /// Write data with an embedded chart to an XLSX file
     pub fn write_with_chart(
         &self,
-        _path: &str,
-        _data: &[Vec<String>],
-        _chart_config: &ChartConfig,
+        path: &str,
+        data: &[Vec<String>],
+        chart_config: &ChartConfig,
     ) -> Result<()> {
-        // Chart XML generation is complex and requires additional XML namespaces
-        // For the custom XLSX writer, chart support requires implementing:
-        // 1. xl/drawings/drawing1.xml
-        // 2. xl/drawings/_rels/drawing1.xml.rels
-        // 3. xl/charts/chart1.xml
-        // 4. xl/charts/_rels/chart1.xml.rels
-        // 5. xl/worksheets/_rels/sheet1.xml.rels
-        // This will be implemented in a future update
-        anyhow::bail!(
-            "Chart support is not yet implemented in the custom XLSX writer. \
-            Charts require complex XML drawing markup which is planned for a future release."
-        );
+        use super::xlsx_writer::XlsxWriter;
+        use super::types::WriteOptions;
+
+        let options = WriteOptions::default();
+        let mut writer = XlsxWriter::with_options(options);
+        let sheet_name = "Sheet1";
+        writer.add_sheet(sheet_name)?;
+        writer.add_data(data);
+        writer.set_chart(chart_config.clone(), data.to_vec());
+
+        let file = std::fs::File::create(path)?;
+        let buf = std::io::BufWriter::new(file);
+        writer.save(buf)?;
+        Ok(())
     }
 
+    /// Add a chart to existing data and write to an XLSX file
     pub fn add_chart_to_data(
         &self,
-        _data: &[Vec<String>],
-        _chart_config: &ChartConfig,
-        _output_path: &str,
+        data: &[Vec<String>],
+        chart_config: &ChartConfig,
+        output_path: &str,
     ) -> Result<()> {
-        anyhow::bail!(
-            "Chart support is not yet implemented in the custom XLSX writer. \
-            Charts require complex XML drawing markup which is planned for a future release."
-        );
+        self.write_with_chart(output_path, data, chart_config)
     }
 }

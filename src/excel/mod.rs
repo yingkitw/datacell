@@ -11,4 +11,8 @@ pub use chart::{ChartConfig, DataChartType};
 pub use reader::ExcelHandler;
 #[allow(unused_imports)]
 pub use types::{CellStyle, WriteOptions};
-pub use xlsx_writer::{CellData, RowData, XlsxWriter};
+pub use xlsx_writer::{
+    CellData, ConditionalFormat, ConditionalRule, RowData, Sparkline, SparklineGroup,
+    SparklineType, XlsxWriter,
+    streaming::StreamingXlsxWriter,
+};
