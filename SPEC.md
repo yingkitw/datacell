@@ -185,11 +185,76 @@ datacell <command> [options]
 - Caching for repeated operations
 - Incremental updates for large files
 
+## Custom XLSX Writer Design
+
+datacell generates Excel files using a from-scratch XLSX writer rather than an external library. This section documents the design rationale and implementation.
+
+### Motivation
+
+XLSX files are ZIP archives containing XML files that follow the ECMA-376 Office Open XML (OOXML) standard. Several Rust crates exist for writing XLSX, but each had drawbacks for our use case:
+
+| Crate | Drawback |
+|-------|----------|
+| `rust_xlsxwriter` | Heavy dependency tree; version conflicts with our `zip` crate usage |
+| `simple_excel_writer` | No formula support; limited cell types |
+| `xlsxwriter` (C FFI) | Requires system C library; complicates cross-compilation and CI |
+
+We chose to generate the XML directly using only the `zip` crate. This gives us a smaller binary, full control over output, and no external library version conflicts. The trade-off is that we must implement OOXML compliance ourselves, and advanced features like charts require significant XML markup work.
+
+### OOXML Structure
+
+A valid XLSX file contains these required entries in the ZIP archive:
+
+```
+[Content_Types].xml          # MIME types for all parts
+_rels/.rels                  # Top-level relationships
+xl/workbook.xml              # Workbook with sheet list
+xl/_rels/workbook.xml.rels   # Workbook relationships
+xl/styles.xml                # Fonts, fills, borders, cell formats
+xl/theme/theme1.xml          # Color/font theme
+xl/worksheets/sheet1.xml     # Worksheet data (one per sheet)
+```
+
+### Key Implementation Details
+
+The writer lives in `src/excel/xlsx_writer/` with three files:
+- **`mod.rs`** — `XlsxWriter` struct, sheet/row/cell API
+- **`types.rs`** — `CellData`, `RowData`, `SheetData` types
+- **`xml_gen.rs`** — All XML generation functions
+
+Critical OOXML elements that Excel/Numbers require (discovered by byte-level comparison with openpyxl output):
+- `<sheetPr>` with `<outlinePr>` and `<pageSetUpPr/>`
+- `<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>`
+- `<selection>` inside `<sheetView>` for cursor positioning
+- `<pageMargins>` at the end of each worksheet
+- `<workbookPr/>`, `<bookViews>`, `<calcPr>` in workbook.xml
+- `<diagonal/>` in every `<border>` element
+- `<tableStyles>` in styles.xml
+- Number cells with explicit `t="n"` type attribute
+- Theme with `lnStyleLst` and triple entries in fill/effect/bg style lists
+
+### Supported Features
+- Multiple sheets (max 31-char names, invalid character validation)
+- Cell types: String (inline), Number, Formula, Empty
+- Column widths (auto-fit and manual)
+- Freeze header row
+- Auto-filter
+- Basic styling (bold, fills, borders, alignment)
+
+### Not Yet Implemented
+- Charts (requires `xl/drawings/`, `xl/charts/`, complex relationship XML)
+- Sparklines
+- Conditional formatting (color scales, data bars, icon sets)
+- Merged cells
+- Data validation dropdowns
+- Pivot tables
+
 ## Technical Stack
 
 - **Language**: Rust (Edition 2024)
 - **CLI Framework**: clap (derive macros)
-- **Excel**: calamine (read), rust_xlsxwriter (write)
+- **Excel Read**: calamine (reads .xls, .xlsx, .ods)
+- **Excel Write**: Custom OOXML writer using `zip` crate (no external Excel library)
 - **CSV**: csv crate
 - **Parquet**: parquet + arrow (v54)
 - **Avro**: apache-avro

@@ -207,7 +207,7 @@ impl IoCommandHandler {
 
     /// Handle the GSheetsList command
     pub fn handle_gsheets_list(&self, spreadsheet: String) -> Result<()> {
-        let handler = GoogleSheetsHandler::new();
+        let _handler = GoogleSheetsHandler::new();
         
         // TODO: Implement actual API call to list sheets
         println!("Listing sheets in Google Sheets: {}", spreadsheet);

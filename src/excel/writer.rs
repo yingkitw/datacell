@@ -14,7 +14,9 @@ impl ExcelHandler {
         excel_path: &str,
         sheet_name: Option<&str>,
     ) -> Result<()> {
-        let mut reader = csv::Reader::from_path(csv_path)
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_path(csv_path)
             .with_context(|| format!("Failed to open CSV file: {csv_path}"))?;
 
         let mut writer = XlsxWriter::new();
@@ -90,7 +92,7 @@ impl ExcelHandler {
             let mut row_data = RowData::new();
             for cell in row {
                 // Determine cell format
-                let use_header_style = is_header;
+                let _use_header_style = is_header;
 
                 if let Ok(num) = cell.parse::<f64>() {
                     row_data.add_number(num);
@@ -114,7 +116,7 @@ impl ExcelHandler {
     /// Note: This creates a formula that Excel will render as a sparkline
     pub fn add_sparkline_formula(
         &self,
-        excel_path: &str,
+        _excel_path: &str,
         _data_range: &str,
         _sparkline_cell: &str,
         _sheet_name: Option<&str>,

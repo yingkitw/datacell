@@ -262,7 +262,7 @@ impl XlsxWriter {
         rels.push_str(r#"
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">"#);
 
-        for (idx, sheet) in self.sheets.iter().enumerate() {
+        for (idx, _sheet) in self.sheets.iter().enumerate() {
             rels.push_str(&format!(r#"
     <Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{}.xml"/>"#, idx + 1, idx + 1));
         }
@@ -370,7 +370,7 @@ impl XlsxWriter {
         if self.options.freeze_header {
             worksheet.push_str(r#"
     <sheetViews>
-        <sheetView x:ySplit="1" workbookViewId="0"/>
+        <sheetView ySplit="1" workbookViewId="0"/>
     </sheetViews>"#);
         } else {
             worksheet.push_str(r#"

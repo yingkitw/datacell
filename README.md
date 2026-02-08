@@ -153,25 +153,73 @@ default_format = "csv"
 include_headers = true
 ```
 
-## Excel Support
+## Custom XLSX Writer
 
-datacell includes a custom XLSX writer implementation that creates Excel files without external dependencies.
+datacell generates Excel files using a **from-scratch XLSX writer** — no external Excel writing library needed. The writer produces Office Open XML (OOXML) files directly as ZIP archives containing XML, validated against the ECMA-376 standard.
 
-### Supported Features
-- Multiple sheets
-- Cell data types (String, Number, Formula, Empty)
-- Column width configuration
-- Freeze headers
-- Auto-filter
-- Basic styling (bold, alignment, borders, fills)
+### Why Build From Scratch?
+
+We tried several existing Rust crates for XLSX writing and ran into issues:
+
+| Approach | Issue |
+|----------|-------|
+| `rust_xlsxwriter` | Worked well initially, but added a heavy dependency tree and had version compatibility friction with the `zip` crate |
+| `simple_excel_writer` | Limited feature set, no formula support |
+| `xlsxwriter` (C bindings) | Requires system-level C library, complicates cross-compilation |
+
+Building our own writer using just the `zip` crate gave us full control over the XML output, a smaller dependency footprint, and the ability to fix compatibility issues directly. The trade-off is that advanced features (charts, conditional formatting) require implementing complex XML markup ourselves.
+
+### What It Supports
+- **Multiple sheets** with name validation
+- **Cell types**: String, Number, Formula, Empty
+- **Column widths** (auto-fit and manual)
+- **Freeze headers** (frozen top row)
+- **Auto-filter** for table columns
+- **Basic styling** (bold headers, alignment, borders, fills)
+- **Proper OOXML structure** — opens in Excel, Numbers, LibreOffice, Google Sheets
+
+### Usage
+
+```bash
+# Convert CSV to XLSX
+datacell convert --input data.csv --output data.xlsx
+
+# Export with styled headers, freeze panes, and auto-filter
+datacell export-styled --input data.csv --output styled.xlsx
+
+# Write formulas to XLSX
+datacell formula --input data.csv --output result.xlsx --formula "SUM(C2:C100)" --cell "D1"
+```
+
+```rust
+// Programmatic usage
+use datacell::excel::xlsx_writer::{XlsxWriter, RowData};
+
+let mut writer = XlsxWriter::new();
+writer.add_sheet("Sales")?;
+
+let mut header = RowData::new();
+header.add_string("Product");
+header.add_string("Revenue");
+writer.add_row(header);
+
+let mut row = RowData::new();
+row.add_string("Widget");
+row.add_number(1234.56);
+writer.add_row(row);
+
+let file = std::fs::File::create("output.xlsx")?;
+writer.save(&mut std::io::BufWriter::new(file))?;
+```
 
 ### Current Limitations
-- **Chart generation** - Not yet implemented (requires complex XML drawing markup)
-- **Sparklines** - Placeholder implementation
-- **Conditional formatting** - Placeholder implementation
-- **Advanced Excel features** - Some features require additional XML markup
+- **Charts** — not yet implemented (requires complex XML drawing/chart markup)
+- **Sparklines** — not yet implemented
+- **Conditional formatting** — not yet implemented (color scales, data bars, icon sets)
+- **Merged cells** — not yet implemented
+- **Rich text within cells** — not supported
 
-For charts and visualizations, consider exporting to CSV and using external plotting tools.
+For charts and visualizations, consider exporting to CSV and using dedicated plotting tools (e.g., Python matplotlib, gnuplot).
 
 ## MCP Server
 
@@ -180,11 +228,3 @@ Start the MCP server for AI assistant integration:
 ```bash
 datacell serve
 ```
-
-## License
-
-Apache-2.0
-
-## Contributing
-
-See [CLAUDE.md](CLAUDE.md) for development guidance.

@@ -27,12 +27,16 @@ datacell/
 │   ├── format_detector.rs   # File format detection from extension
 │   │
 │   ├── csv_handler.rs       # CSV file operations
-│   ├── excel/               # Excel/ODS operations (calamine + rust_xlsxwriter)
+│   ├── excel/               # Excel/ODS operations (calamine read + custom OOXML write)
 │   │   ├── mod.rs           # Module exports + ExcelHandler
-│   │   ├── reader.rs        # Read Excel/ODS files
+│   │   ├── reader.rs        # Read Excel/ODS files (calamine)
 │   │   ├── writer.rs        # Write Excel files (XLSX only)
-│   │   ├── chart.rs         # Chart generation
-│   │   └── types.rs         # Excel-specific types (CellStyle, WriteOptions)
+│   │   ├── chart.rs         # Chart generation (placeholder)
+│   │   ├── types.rs         # Excel-specific types (CellStyle, WriteOptions)
+│   │   └── xlsx_writer/     # Custom OOXML writer (from scratch, no external Excel lib)
+│   │       ├── mod.rs       # XlsxWriter struct, sheet/row/cell API
+│   │       ├── types.rs     # CellData, RowData, SheetData
+│   │       └── xml_gen.rs   # XML generation for all XLSX parts
 │   ├── columnar.rs          # Parquet and Avro support
 │   │
 │   ├── formula/             # Formula evaluation module
@@ -333,7 +337,7 @@ datacell encrypt --input data.csv --output encrypted.csv --algorithm aes256
 |-------|---------|---------|
 | clap | 4.5 | CLI argument parsing with derive macros |
 | calamine | 0.26 | Read Excel files (.xls, .xlsx, .ods) |
-| rust_xlsxwriter | 0.80 | Write Excel files (.xlsx only) |
+| zip | 2.2 | ZIP archive creation for custom XLSX writer |
 | csv | 1.3 | CSV file handling |
 | parquet | 54 | Parquet format support |
 | arrow | 54 | Arrow memory format |
@@ -346,6 +350,9 @@ datacell encrypt --input data.csv --output encrypted.csv --algorithm aes256
 | anyhow | 1.0 | Error handling |
 | thiserror | 1.0 | Error types |
 | schemars | 1.0 | JSON schema generation |
+
+> **Note**: Excel writing uses a custom OOXML implementation instead of `rust_xlsxwriter`.
+> See the XLSX Writer section below for rationale.
 
 ## Configuration
 
@@ -459,11 +466,62 @@ python3 run_tests.py
 - **Efficient CSV parsing** with the `csv` crate
 - **Lazy evaluation** in operations pipeline
 
+## Custom XLSX Writer
+
+### Why From Scratch?
+
+We replaced `rust_xlsxwriter` with a hand-rolled OOXML writer. The decision was pragmatic, not ideological:
+
+| Option | Why We Didn't Use It |
+|--------|---------------------|
+| `rust_xlsxwriter` | Heavy dependency tree; `zip` crate version conflicts with our existing usage |
+| `simple_excel_writer` | No formula support; limited cell types |
+| `xlsxwriter` (C FFI) | Requires system C library; breaks cross-compilation |
+
+Our writer uses only the `zip` crate to produce ECMA-376 compliant XLSX files. The trade-off: we own the XML generation, which means advanced features (charts, conditional formatting) require us to implement the XML markup ourselves.
+
+### Architecture
+
+```
+src/excel/xlsx_writer/
+├── mod.rs       # XlsxWriter: public API (add_sheet, add_row, save)
+├── types.rs     # CellData (String|Number|Formula|Empty), RowData, SheetData
+└── xml_gen.rs   # XML generation for each XLSX part:
+                 #   add_content_types  → [Content_Types].xml
+                 #   add_rels           → _rels/.rels
+                 #   add_workbook       → xl/workbook.xml
+                 #   add_workbook_rels  → xl/_rels/workbook.xml.rels
+                 #   add_styles         → xl/styles.xml
+                 #   add_theme          → xl/theme/theme1.xml
+                 #   add_worksheet      → xl/worksheets/sheetN.xml
+```
+
+### OOXML Compliance
+
+Getting files to open in Excel and Numbers required matching the spec precisely. We discovered the required elements by generating a reference file with Python's openpyxl and doing a byte-level comparison. Key learnings:
+
+- Excel silently rejects files missing `<sheetFormatPr>` or `<pageMargins>`
+- Numbers requires `<selection>` inside `<sheetView>`
+- `<border>` elements must include `<diagonal/>` even if empty
+- Theme `<a:fmtScheme>` requires exactly 3 entries in each style list
+- Number cells need explicit `t="n"` type attribute for reliable parsing
+
+### Test Coverage
+
+- **26 unit tests** in `xlsx_writer/mod.rs` (cell types, sheet names, column widths, save/load)
+- **8 validation tests** in `tests/test_xlsx_validation.rs` (ZIP structure, XML content, freeze panes, formulas, special characters)
+- **23 integration tests** in `tests/test_excel.rs` (round-trip write/read, styled export, charts error handling)
+
+### What's Not Implemented
+
+Charts, sparklines, conditional formatting, merged cells, data validation, and pivot tables all require additional XML parts and relationships that we haven't built yet. These are documented as known limitations and return clear error messages.
+
 ## Future Improvements
 
 - Full REST API server implementation (requires HTTP framework choice)
 - More Excel formula functions
 - Conditional formatting in Excel output
+- Chart generation (requires xl/drawings/ and xl/charts/ XML)
 - Query optimizer for complex operations
 - Parallel processing for large datasets
 - Caching layer for repeated operations

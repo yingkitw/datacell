@@ -72,8 +72,8 @@ impl Default for WriteOptions {
             style_header: true,
             header_style: CellStyle::header(),
             column_styles: None,
-            freeze_header: true,
-            auto_filter: true,
+            freeze_header: false,
+            auto_filter: false,
             auto_fit: true,
         }
     }

@@ -122,7 +122,7 @@ fn test_excel_read_range() {
     let range = datacell::CellRange::parse("A1:B3").unwrap();
     let data = handler.read_range(&excel_path, &range, None).unwrap();
 
-    assert_eq!(data.len(), 2); // 2 rows
+    assert_eq!(data.len(), 3); // 3 rows (header + 2 data rows)
     assert_eq!(data[0].len(), 2); // 2 columns (A and B)
 
     fs::remove_file(&excel_path).ok();
@@ -205,7 +205,7 @@ fn test_cell_style_header() {
 
 #[test]
 fn test_cell_style_custom() {
-    let style = CellStyle {
+    let _style = CellStyle {
         bold: true,
         italic: true,
         bg_color: Some("FF0000".to_string()),

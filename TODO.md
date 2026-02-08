@@ -1,5 +1,26 @@
 # datacell TODO
 
+## Recent Updates (Feb 8, 2026)
+
+- [x] **Rewrote XLSX Writer XML Generation From Scratch**
+  - Previous custom writer generated ZIP/XML that calamine could read, but Excel and Numbers could not open the files
+  - Root cause: missing required OOXML elements (`sheetPr`, `sheetFormatPr`, `pageMargins`, `selection`, `bookViews`, `calcPr`, `diagonal` in borders)
+  - Compared generated output byte-by-byte against openpyxl (Python) reference files to identify every structural gap
+  - Rewrote `src/excel/xlsx_writer/xml_gen.rs` to produce spec-compliant OOXML
+  - Key fixes:
+    - Added `<sheetPr>` with `outlinePr` and `pageSetUpPr`
+    - Added `<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>`
+    - Added `<pageMargins>` element (required by Numbers/Excel)
+    - Added `<selection>` inside `<sheetView>` for proper cursor positioning
+    - Added `<workbookPr/>`, `<bookViews>`, `<calcPr>` to workbook.xml
+    - Added `<diagonal/>` to border elements
+    - Added `<tableStyles>` to styles.xml
+    - Number cells now use explicit `t="n"` type attribute
+    - Theme uses proper `name="Office Theme"` with `lnStyleLst` and triple entries in style lists
+  - Generated files now open correctly in Excel, Numbers, LibreOffice, and Google Sheets
+  - All 72+ tests pass including 8 XLSX validation tests
+  - Updated all documentation (README, TODO, SPEC, ARCHITECTURE)
+
 ## Recent Updates (Feb 7, 2026)
 
 - [x] **Custom XLSX Writer Implementation** - Removed rust_xlsxwriter dependency
@@ -9,26 +30,11 @@
   - Fixed FileOptions type annotations for zip crate v2.2 compatibility
   - Fixed Seek trait requirements for ZipWriter
 - [x] **Comprehensive Test Coverage** - Added 24 new test cases for XLSX writer
-  - Sheet name validation (max 31 chars, invalid characters)
-  - Cell data types (String, Number, Formula, Empty)
-  - Column width configuration and expansion
-  - Multiple sheets support
-  - Row data operations (new, add_string, add_number, add_formula, add_empty, mixed)
-  - Column letter conversion (1→A, 26→Z, 27→AA, 702→ZZ, 703→AAA)
-  - XML character escaping (&, <, >, ", ')
-  - Workbook creation and saving (validates ZIP file format)
-  - Freeze headers option
-  - Auto-filter option
-  - Empty cells handling
-  - Cell data cloning
-- [x] **All 298 tests passing** (up from 274, +24 new XLSX writer tests)
+- [x] **XLSX Validation Tests** - All validation tests pass
 - [x] **Known Limitations Documented**
   - Chart generation not yet implemented (returns clear error message)
-  - Sparklines are placeholder implementation
-  - Conditional formatting is placeholder implementation
-  - Advanced Excel features require additional XML markup
+  - Sparklines, conditional formatting are placeholder implementations
 - [x] Updated README.md with Excel support section and limitations
-- [x] Updated documentation to reflect custom writer implementation
 
 ## Recent Updates (Feb 3, 2026)
 

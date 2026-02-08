@@ -21,8 +21,8 @@ impl FormulaEvaluator {
         &self,
         input: &str,
         output: &str,
-        formula: &str,
-        cell: &str,
+        _formula: &str,
+        _cell: &str,
         sheet_name: Option<&str>,
     ) -> Result<()> {
         let mut workbook: Xlsx<_> = open_workbook(input)
@@ -37,7 +37,7 @@ impl FormulaEvaluator {
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
 
-        use crate::excel::xlsx_writer::{XlsxWriter, RowData, CellData};
+        use crate::excel::xlsx_writer::XlsxWriter;
 
         let mut writer = XlsxWriter::new();
         writer.add_sheet(sheet_name)?;
@@ -103,17 +103,30 @@ impl FormulaEvaluator {
 
         records[row as usize][col as usize] = value.to_string();
 
-        let mut writer = WriterBuilder::new()
-            .has_headers(false)
-            .flexible(true)
-            .from_path(output)
-            .with_context(|| format!("Failed to create CSV file: {}", output))?;
+        // Check output format based on extension
+        if output.ends_with(".xlsx") {
+            use crate::excel::xlsx_writer::XlsxWriter;
+            let mut writer = XlsxWriter::new();
+            writer.add_sheet("Sheet1")?;
+            writer.add_data(&records);
 
-        for record in records {
-            writer.write_record(&record)?;
+            let file = std::fs::File::create(output)
+                .with_context(|| format!("Failed to create XLSX file: {}", output))?;
+            let mut buf_writer = std::io::BufWriter::new(file);
+            writer.save(&mut buf_writer)?;
+        } else {
+            let mut writer = WriterBuilder::new()
+                .has_headers(false)
+                .flexible(true)
+                .from_path(output)
+                .with_context(|| format!("Failed to create CSV file: {}", output))?;
+
+            for record in records {
+                writer.write_record(&record)?;
+            }
+            writer.flush()?;
         }
 
-        writer.flush()?;
         Ok(())
     }
 

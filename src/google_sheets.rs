@@ -3,8 +3,7 @@
 use crate::config::Config;
 use crate::csv_handler::CellRange;
 use crate::traits::{DataReader, DataWriteOptions, DataWriter, FileHandler};
-use anyhow::{anyhow, Context, Result};
-use std::fs;
+use anyhow::{anyhow, Result};
 use tokio::runtime::Runtime;
 
 /// Handler for Google Sheets operations
@@ -153,8 +152,8 @@ impl DataReader for GoogleSheetsHandler {
     fn read(&self, path: &str) -> Result<Vec<Vec<String>>> {
         // For now, return a placeholder implementation
         // In a real implementation, this would use the Google Sheets API
-        let spreadsheet_id = self.parse_spreadsheet_id(path)?;
-        let sheet_name = self.parse_sheet_name(path);
+        let _spreadsheet_id = self.parse_spreadsheet_id(path)?;
+        let _sheet_name = self.parse_sheet_name(path);
 
         // TODO: Implement actual Google Sheets API call
         // For now, return sample data
@@ -169,9 +168,9 @@ impl DataReader for GoogleSheetsHandler {
     }
 
     fn read_range(&self, path: &str, range: &CellRange) -> Result<Vec<Vec<String>>> {
-        let spreadsheet_id = self.parse_spreadsheet_id(path)?;
-        let sheet_name = self.parse_sheet_name(path);
-        let range_str = self.cell_range_to_a1(range, sheet_name.as_deref());
+        let _spreadsheet_id = self.parse_spreadsheet_id(path)?;
+        let _sheet_name = self.parse_sheet_name(path);
+        let _range_str = self.cell_range_to_a1(range, _sheet_name.as_deref());
 
         // TODO: Implement actual Google Sheets API call for range
         Ok(vec![vec![

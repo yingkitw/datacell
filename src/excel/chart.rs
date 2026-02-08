@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 use super::reader::ExcelHandler;
-use super::types::CellStyle;
 
 /// Chart type for visualization
 #[derive(Debug, Clone, Copy, PartialEq)]
