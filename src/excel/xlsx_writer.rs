@@ -1,0 +1,917 @@
+//! Custom XLSX writer implementation
+//!
+//! This module provides a lightweight Excel XLSX writer that creates
+//! XLSX files (ZIP archives containing XML files) without external dependencies.
+//!
+//! # Supported Features
+//! - Multiple sheets with validation (max 31 char name, invalid characters)
+//! - Cell data types: String, Number, Formula, Empty
+//! - Column width configuration (auto-fit and manual)
+//! - Freeze headers (freeze top row)
+//! - Auto-filter for tables
+//! - Basic styling (bold, alignment, borders, fills)
+//! - XML escaping for special characters
+//!
+//! # Current Limitations
+//! - **Chart generation**: Not implemented - requires complex XML drawing markup
+//!   - Needs: xl/drawings/, xl/charts/, worksheet relationships
+//! - **Sparklines**: Not implemented - requires additional chart XML
+//! - **Conditional formatting**: Not implemented - requires conditional formatting XML
+//! - **Advanced Excel features**: Some features require additional XML namespaces
+//! - **Merged cells**: Not implemented
+//! - **Data validation**: Not implemented
+//! - **Pivot tables**: Not implemented
+//!
+//! # Implementation Notes
+//! - Uses zip crate v2.2 with FileOptions::<()> for type annotation
+//! - Writer requires Seek trait (ZIP archives need random access)
+//! - All XML is manually generated as strings for simplicity
+//! - Excel file structure follows ECMA-376 OOXML standard
+
+use anyhow::Result;
+use std::io::{Seek, Write};
+use zip::ZipWriter;
+use zip::write::FileOptions;
+
+use super::types::WriteOptions;
+
+/// Cell data type for writing
+#[derive(Debug, Clone)]
+pub enum CellData {
+    String(String),
+    Number(f64),
+    Formula(String),
+    Empty,
+}
+
+/// Row data for writing
+#[derive(Debug, Clone)]
+pub struct RowData {
+    pub cells: Vec<CellData>,
+}
+
+impl RowData {
+    pub fn new() -> Self {
+        Self {
+            cells: Vec::new(),
+        }
+    }
+
+    pub fn add_string(&mut self, value: &str) {
+        self.cells.push(CellData::String(value.to_string()));
+    }
+
+    pub fn add_number(&mut self, value: f64) {
+        self.cells.push(CellData::Number(value));
+    }
+
+    pub fn add_formula(&mut self, formula: &str) {
+        self.cells.push(CellData::Formula(formula.to_string()));
+    }
+
+    pub fn add_empty(&mut self) {
+        self.cells.push(CellData::Empty);
+    }
+}
+
+/// XLSX workbook writer
+pub struct XlsxWriter {
+    pub sheets: Vec<SheetData>,
+    options: WriteOptions,
+}
+
+pub struct SheetData {
+    pub name: String,
+    pub rows: Vec<RowData>,
+    pub column_widths: Vec<f64>,
+}
+
+impl XlsxWriter {
+    pub fn new() -> Self {
+        Self {
+            sheets: Vec::new(),
+            options: WriteOptions::default(),
+        }
+    }
+
+    pub fn with_options(options: WriteOptions) -> Self {
+        Self {
+            sheets: Vec::new(),
+            options,
+        }
+    }
+
+    /// Add a new sheet to the workbook
+    pub fn add_sheet(&mut self, name: &str) -> Result<()> {
+        // Validate sheet name
+        if name.len() > 31 {
+            anyhow::bail!("Sheet name cannot exceed 31 characters");
+        }
+        if name.contains('\\') || name.contains('/') || name.contains('?') || name.contains('*') || name.contains('[') || name.contains(']') {
+            anyhow::bail!("Sheet name contains invalid characters");
+        }
+
+        self.sheets.push(SheetData {
+            name: name.to_string(),
+            rows: Vec::new(),
+            column_widths: Vec::new(),
+        });
+        Ok(())
+    }
+
+    /// Add a row to the current sheet
+    pub fn add_row(&mut self, row: RowData) {
+        if let Some(sheet) = self.sheets.last_mut() {
+            sheet.rows.push(row);
+        }
+    }
+
+    /// Add data from Vec<Vec<String>>
+    pub fn add_data(&mut self, data: &[Vec<String>]) {
+        for row in data {
+            let mut row_data = RowData::new();
+            for cell in row {
+                if let Ok(num) = cell.parse::<f64>() {
+                    row_data.add_number(num);
+                } else if !cell.is_empty() {
+                    row_data.add_string(cell);
+                } else {
+                    row_data.add_empty();
+                }
+            }
+            self.add_row(row_data);
+        }
+    }
+
+    /// Set column width for current sheet
+    pub fn set_column_width(&mut self, col: usize, width: f64) {
+        if let Some(sheet) = self.sheets.last_mut() {
+            while sheet.column_widths.len() <= col {
+                sheet.column_widths.push(8.43); // Default Excel column width
+            }
+            sheet.column_widths[col] = width;
+        }
+    }
+
+    /// Save the workbook to a file
+    pub fn save<W: Write + Seek>(&self, mut writer: W) -> Result<()> {
+        let mut zip = ZipWriter::new(&mut writer);
+
+        // Add [Content_Types].xml
+        self.add_content_types(&mut zip)?;
+
+        // Add _rels/.rels
+        self.add_rels(&mut zip)?;
+
+        // Add xl/workbook.xml
+        self.add_workbook(&mut zip)?;
+
+        // Add xl/_rels/workbook.xml.rels
+        self.add_workbook_rels(&mut zip)?;
+
+        // Add xl/styles.xml
+        self.add_styles(&mut zip)?;
+
+        // Add worksheets
+        for (idx, sheet) in self.sheets.iter().enumerate() {
+            self.add_worksheet(&mut zip, idx, sheet)?;
+        }
+
+        // Add xl/theme/theme1.xml
+        self.add_theme(&mut zip)?;
+
+        zip.finish()?;
+        Ok(())
+    }
+
+    fn add_content_types<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let mut content_types = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        content_types.push_str(r#"
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#);
+        content_types.push_str(r#"
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>"#);
+        content_types.push_str(r#"
+    <Default Extension="xml" ContentType="application/xml"/>"#);
+        content_types.push_str(r#"
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>"#);
+
+        for idx in 0..self.sheets.len() {
+            content_types.push_str(&format!(r#"
+    <Override PartName="/xl/worksheets/sheet{}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"#, idx + 1));
+        }
+
+        content_types.push_str(r#"
+    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>"#);
+        content_types.push_str(r#"
+    <Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>"#);
+        content_types.push_str(r#"
+</Types>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("[Content_Types].xml", options)?;
+        zip.write_all(content_types.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_rels<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let mut rels = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        rels.push_str(r#"
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">"#);
+        rels.push_str(r#"
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>"#);
+        rels.push_str(r#"
+</Relationships>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("_rels/.rels", options)?;
+        zip.write_all(rels.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_workbook<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let mut workbook = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        workbook.push_str(r#"
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">"#);
+        workbook.push_str(r#"
+    <sheets>"#);
+
+        for (idx, sheet) in self.sheets.iter().enumerate() {
+            let name = escape_xml(&sheet.name);
+            workbook.push_str(&format!(r#"
+        <sheet name="{}" sheetId="{}" r:id="rId{}"/>"#, name, idx + 1, idx + 1));
+        }
+
+        workbook.push_str(r#"
+    </sheets>
+</workbook>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("xl/workbook.xml", options)?;
+        zip.write_all(workbook.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_workbook_rels<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let mut rels = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        rels.push_str(r#"
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">"#);
+
+        for (idx, sheet) in self.sheets.iter().enumerate() {
+            rels.push_str(&format!(r#"
+    <Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{}.xml"/>"#, idx + 1, idx + 1));
+        }
+
+        rels.push_str(&format!(r#"
+    <Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>"#, self.sheets.len() + 1));
+        rels.push_str(&format!(r#"
+    <Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>"#, self.sheets.len() + 2));
+
+        rels.push_str(r#"
+</Relationships>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("xl/_rels/workbook.xml.rels", options)?;
+        zip.write_all(rels.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_styles<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let mut styles = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        styles.push_str(r#"
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#);
+
+        // Number formats (indices 164-180 are custom formats)
+        styles.push_str(r#"
+    <numFmts count="0"/>"#);
+
+        // Fonts
+        styles.push_str(r#"
+    <fonts count="2">
+        <font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>
+        <font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>
+    </fonts>"#);
+
+        // Fills
+        styles.push_str(r#"
+    <fills count="3">
+        <fill><patternFill patternType="none"/></fill>
+        <fill><patternFill patternType="gray125"/></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill>
+    </fills>"#);
+
+        // Borders
+        styles.push_str(r#"
+    <borders count="2">
+        <border><left/><right/><top/><bottom/></border>
+        <border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom></border>
+    </borders>"#);
+
+        // Cell style XFs
+        styles.push_str(r#"
+    <cellStyleXFs count="1">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    </cellStyleXFs>"#);
+
+        // Cell XFs
+        styles.push_str(r#"
+    <cellXfs count="3">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+        <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1">
+            <alignment horizontal="center"/>
+        </xf>
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0">
+            <alignment horizontal="center"/>
+        </xf>
+    </cellXfs>"#);
+
+        // Cell styles
+        styles.push_str(r#"
+    <cellStyles count="1">
+        <cellStyle name="Normal" xfId="0" builtinId="0"/>
+    </cellStyles>"#);
+
+        styles.push_str(r#"
+</styleSheet>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("xl/styles.xml", options)?;
+        zip.write_all(styles.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_worksheet<W: Write + Seek>(
+        &self,
+        zip: &mut ZipWriter<W>,
+        idx: usize,
+        sheet: &SheetData,
+    ) -> Result<()> {
+        let mut worksheet = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#);
+        worksheet.push_str(r#"
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#);
+
+        // Calculate dimensions
+        let max_row = sheet.rows.len();
+        let max_col = sheet.rows.iter().map(|r| r.cells.len()).max().unwrap_or(0);
+
+        worksheet.push_str(&format!(r#"
+    <dimension ref="A1:{}{}"/>"#, self.col_num_to_letter(max_col), max_row));
+
+        // Sheet views (freeze panes)
+        if self.options.freeze_header {
+            worksheet.push_str(r#"
+    <sheetViews>
+        <sheetView x:ySplit="1" workbookViewId="0"/>
+    </sheetViews>"#);
+        } else {
+            worksheet.push_str(r#"
+    <sheetViews>
+        <sheetView workbookViewId="0"/>
+    </sheetViews>"#);
+        }
+
+        // Columns (widths)
+        if !sheet.column_widths.is_empty() {
+            worksheet.push_str(r#"
+    <cols>"#);
+            for (col_idx, &width) in sheet.column_widths.iter().enumerate() {
+                worksheet.push_str(&format!(r#"
+        <col min="{}" max="{}" width="{}" customWidth="1"/>"#, col_idx + 1, col_idx + 1, width));
+            }
+            worksheet.push_str(r#"
+    </cols>"#);
+        }
+
+        // Sheet data
+        worksheet.push_str(r#"
+    <sheetData>"#);
+
+        for (row_idx, row) in sheet.rows.iter().enumerate() {
+            worksheet.push_str(&format!(r#"
+        <row r="{}">"#, row_idx + 1));
+
+            for (col_idx, cell) in row.cells.iter().enumerate() {
+                let col_ref = self.col_num_to_letter(col_idx + 1);
+                let cell_ref = format!("{}{}", col_ref, row_idx + 1);
+
+                match cell {
+                    CellData::String(s) => {
+                        worksheet.push_str(&format!(r#"
+            <c r="{}" t="inlineStr"><is><t>{}</t></is></c>"#, cell_ref, escape_xml(s)));
+                    }
+                    CellData::Number(n) => {
+                        worksheet.push_str(&format!(r#"
+            <c r="{}"><v>{}</v></c>"#, cell_ref, n));
+                    }
+                    CellData::Formula(f) => {
+                        let formula = if f.starts_with('=') { &f[1..] } else { f };
+                        worksheet.push_str(&format!(r#"
+            <c r="{}"><f>{}</f></c>"#, cell_ref, escape_xml(formula)));
+                    }
+                    CellData::Empty => {}
+                }
+            }
+
+            worksheet.push_str(r#"
+        </row>"#);
+        }
+
+        worksheet.push_str(r#"
+    </sheetData>"#);
+
+        // AutoFilter
+        if self.options.auto_filter && max_row > 0 && max_col > 0 {
+            worksheet.push_str(&format!(r#"
+    <autoFilter ref="A1:{}{}"/>"#, self.col_num_to_letter(max_col), max_row));
+        }
+
+        worksheet.push_str(r#"
+</worksheet>"#);
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file(&format!("xl/worksheets/sheet{}.xml", idx + 1), options)?;
+        zip.write_all(worksheet.as_bytes())?;
+        Ok(())
+    }
+
+    fn add_theme<W: Write + Seek>(&self, zip: &mut ZipWriter<W>) -> Result<()> {
+        let theme = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:ct="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <a:themeElements>
+        <a:clrScheme name="Office">
+            <a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>
+            <a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>
+            <a:dk2><a:srgbClr val="1F497D"/></a:dk2>
+            <a:lt2><a:srgbClr val="EEECE1"/></a:lt2>
+            <a:accent1><a:srgbClr val="4F81BD"/></a:accent1>
+            <a:accent2><a:srgbClr val="C0504D"/></a:accent2>
+            <a:accent3><a:srgbClr val="9BBB59"/></a:accent3>
+            <a:accent4><a:srgbClr val="8064A2"/></a:accent4>
+            <a:accent5><a:srgbClr val="4BACC6"/></a:accent5>
+            <a:accent6><a:srgbClr val="F79646"/></a:accent6>
+            <a:hlink><a:srgbClr val="0000FF"/></a:hlink>
+            <a:folHlink><a:srgbClr val="800080"/></a:folHlink>
+        </a:clrScheme>
+        <a:fontScheme name="Office">
+            <a:majorFont>
+                <a:latin typeface="Calibri"/>
+                <a:ea typeface=""/>
+            </a:majorFont>
+            <a:minorFont>
+                <a:latin typeface="Calibri"/>
+                <a:ea typeface=""/>
+            </a:minorFont>
+        </a:fontScheme>
+        <a:fmtScheme name="Office">
+            <a:fillStyleLst>
+                <a:solidFill>
+                    <a:schemeClr val="phClr"/>
+                </a:solidFill>
+            </a:fillStyleLst>
+            <a:bgFillStyleLst>
+                <a:solidFill>
+                    <a:schemeClr val="phClr"/>
+                </a:solidFill>
+            </a:bgFillStyleLst>
+            <a:effectStyleLst>
+                <a:effectStyle>
+                    <a:effectLst/>
+                </a:effectStyle>
+            </a:effectStyleLst>
+            <a:fgFillStyleLst>
+                <a:solidFill>
+                    <a:schemeClr val="phClr"/>
+                </a:solidFill>
+            </a:fgFillStyleLst>
+        </a:fmtScheme>
+    </a:themeElements>
+</a:theme>"#;
+
+        let options = FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+        zip.start_file("xl/theme/theme1.xml", options)?;
+        zip.write_all(theme.as_bytes())?;
+        Ok(())
+    }
+
+    fn col_num_to_letter(&self, col: usize) -> String {
+        if col == 0 {
+            return "A".to_string();
+        }
+        let mut col = col;
+        let mut result = String::new();
+        while col > 0 {
+            col -= 1;
+            result.insert(0, ((b'A') + (col % 26) as u8) as char);
+            col /= 26;
+        }
+        result
+    }
+}
+
+impl Default for XlsxWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Escape special XML characters
+fn escape_xml(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| match c {
+            '&' => "&amp;".chars().collect::<Vec<_>>(),
+            '<' => "&lt;".chars().collect::<Vec<_>>(),
+            '>' => "&gt;".chars().collect::<Vec<_>>(),
+            '"' => "&quot;".chars().collect::<Vec<_>>(),
+            '\'' => "&apos;".chars().collect::<Vec<_>>(),
+            _ => vec![c],
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::types::CellStyle;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_col_num_to_letter() {
+        let writer = XlsxWriter::new();
+        assert_eq!(writer.col_num_to_letter(1), "A");
+        assert_eq!(writer.col_num_to_letter(26), "Z");
+        assert_eq!(writer.col_num_to_letter(27), "AA");
+        assert_eq!(writer.col_num_to_letter(28), "AB");
+        assert_eq!(writer.col_num_to_letter(52), "AZ");
+        assert_eq!(writer.col_num_to_letter(53), "BA");
+        assert_eq!(writer.col_num_to_letter(701), "ZY");
+        assert_eq!(writer.col_num_to_letter(702), "ZZ");
+        assert_eq!(writer.col_num_to_letter(703), "AAA");
+    }
+
+    #[test]
+    fn test_escape_xml() {
+        assert_eq!(escape_xml("hello"), "hello");
+        assert_eq!(escape_xml("a&b"), "a&amp;b");
+        assert_eq!(escape_xml("a<b"), "a&lt;b");
+        assert_eq!(escape_xml("a>b"), "a&gt;b");
+        assert_eq!(escape_xml("a\"b"), "a&quot;b");
+        assert_eq!(escape_xml("a'b"), "a&apos;b");
+        assert_eq!(escape_xml("<>&\"'"), "&lt;&gt;&amp;&quot;&apos;");
+    }
+
+    #[test]
+    fn test_row_data_new() {
+        let row = RowData::new();
+        assert_eq!(row.cells.len(), 0);
+    }
+
+    #[test]
+    fn test_row_data_add_string() {
+        let mut row = RowData::new();
+        row.add_string("test");
+        assert_eq!(row.cells.len(), 1);
+        match &row.cells[0] {
+            CellData::String(s) => assert_eq!(s, "test"),
+            _ => panic!("Expected String cell"),
+        }
+    }
+
+    #[test]
+    fn test_row_data_add_number() {
+        let mut row = RowData::new();
+        row.add_number(42.5);
+        assert_eq!(row.cells.len(), 1);
+        match &row.cells[0] {
+            CellData::Number(n) => assert_eq!(*n, 42.5),
+            _ => panic!("Expected Number cell"),
+        }
+    }
+
+    #[test]
+    fn test_row_data_add_formula() {
+        let mut row = RowData::new();
+        row.add_formula("=SUM(A1:A10)");
+        assert_eq!(row.cells.len(), 1);
+        match &row.cells[0] {
+            CellData::Formula(f) => assert_eq!(f, "=SUM(A1:A10)"),
+            _ => panic!("Expected Formula cell"),
+        }
+    }
+
+    #[test]
+    fn test_row_data_add_empty() {
+        let mut row = RowData::new();
+        row.add_empty();
+        assert_eq!(row.cells.len(), 1);
+        match &row.cells[0] {
+            CellData::Empty => {}
+            _ => panic!("Expected Empty cell"),
+        }
+    }
+
+    #[test]
+    fn test_row_data_mixed() {
+        let mut row = RowData::new();
+        row.add_string("Name");
+        row.add_number(100.0);
+        row.add_formula("=B2*2");
+        row.add_empty();
+        assert_eq!(row.cells.len(), 4);
+    }
+
+    #[test]
+    fn test_xlsx_writer_new() {
+        let writer = XlsxWriter::new();
+        assert_eq!(writer.sheets.len(), 0);
+    }
+
+    #[test]
+    fn test_xlsx_writer_default() {
+        let writer = XlsxWriter::default();
+        assert_eq!(writer.sheets.len(), 0);
+    }
+
+    #[test]
+    fn test_xlsx_writer_with_options() {
+        let options = WriteOptions {
+            sheet_name: Some("TestSheet".to_string()),
+            style_header: true,
+            header_style: CellStyle::header(),
+            column_styles: None,
+            freeze_header: true,
+            auto_filter: true,
+            auto_fit: true,
+        };
+        let writer = XlsxWriter::with_options(options.clone());
+        assert_eq!(writer.sheets.len(), 0);
+        // Can't access private options field, but we verified it compiles
+        let _ = writer;
+    }
+
+    #[test]
+    fn test_add_sheet_valid_name() {
+        let mut writer = XlsxWriter::new();
+        assert!(writer.add_sheet("Sheet1").is_ok());
+        assert!(writer.add_sheet("Data").is_ok());
+        assert_eq!(writer.sheets.len(), 2);
+        assert_eq!(writer.sheets[0].name, "Sheet1");
+        assert_eq!(writer.sheets[1].name, "Data");
+    }
+
+    #[test]
+    fn test_add_sheet_too_long() {
+        let mut writer = XlsxWriter::new();
+        let long_name = "a".repeat(32); // 32 characters > 31 limit
+        assert!(writer.add_sheet(&long_name).is_err());
+    }
+
+    #[test]
+    fn test_add_sheet_invalid_characters() {
+        let mut writer = XlsxWriter::new();
+        assert!(writer.add_sheet("Sheet\\Test").is_err());
+        assert!(writer.add_sheet("Sheet/Test").is_err());
+        assert!(writer.add_sheet("Sheet?Test").is_err());
+        assert!(writer.add_sheet("Sheet*Test").is_err());
+        assert!(writer.add_sheet("Sheet[Test").is_err());
+        assert!(writer.add_sheet("Sheet]Test").is_err());
+    }
+
+    #[test]
+    fn test_add_row() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Sheet1").unwrap();
+
+        let mut row = RowData::new();
+        row.add_string("A");
+        row.add_number(1.0);
+        writer.add_row(row);
+
+        assert_eq!(writer.sheets[0].rows.len(), 1);
+        assert_eq!(writer.sheets[0].rows[0].cells.len(), 2);
+    }
+
+    #[test]
+    fn test_add_data() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Sheet1").unwrap();
+
+        let data = vec![
+            vec!["Name".to_string(), "Age".to_string()],
+            vec!["Alice".to_string(), "30".to_string()],
+            vec!["Bob".to_string(), "25".to_string()],
+        ];
+        writer.add_data(&data);
+
+        assert_eq!(writer.sheets[0].rows.len(), 3);
+        // First row should be strings
+        assert!(matches!(writer.sheets[0].rows[0].cells[0], CellData::String(_)));
+        // Second row: Alice is string, 30 should be parsed as number
+        assert!(matches!(writer.sheets[0].rows[1].cells[0], CellData::String(_)));
+        assert!(matches!(writer.sheets[0].rows[1].cells[1], CellData::Number(_)));
+        // Third row: Bob is string, 25 should be parsed as number
+        assert!(matches!(writer.sheets[0].rows[2].cells[0], CellData::String(_)));
+        assert!(matches!(writer.sheets[0].rows[2].cells[1], CellData::Number(_)));
+    }
+
+    #[test]
+    fn test_set_column_width() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Sheet1").unwrap();
+
+        writer.set_column_width(0, 15.5);
+        writer.set_column_width(1, 20.0);
+
+        assert_eq!(writer.sheets[0].column_widths.len(), 2);
+        assert_eq!(writer.sheets[0].column_widths[0], 15.5);
+        assert_eq!(writer.sheets[0].column_widths[1], 20.0);
+    }
+
+    #[test]
+    fn test_set_column_width_expands() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Sheet1").unwrap();
+
+        // Setting column 5 should create columns 0-5 with default width
+        writer.set_column_width(5, 10.0);
+
+        assert_eq!(writer.sheets[0].column_widths.len(), 6);
+        assert_eq!(writer.sheets[0].column_widths[0], 8.43); // default
+        assert_eq!(writer.sheets[0].column_widths[5], 10.0);  // set value
+    }
+
+    #[test]
+    fn test_add_row_without_sheet() {
+        let mut writer = XlsxWriter::new();
+        let row = RowData::new();
+        // Should not panic, just not add the row
+        writer.add_row(row);
+        assert_eq!(writer.sheets.len(), 0);
+    }
+
+    #[test]
+    fn test_add_multiple_sheets() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Sheet1").unwrap();
+        writer.add_sheet("Sheet2").unwrap();
+        writer.add_sheet("Sheet3").unwrap();
+
+        assert_eq!(writer.sheets.len(), 3);
+        assert_eq!(writer.sheets[0].name, "Sheet1");
+        assert_eq!(writer.sheets[1].name, "Sheet2");
+        assert_eq!(writer.sheets[2].name, "Sheet3");
+    }
+
+    #[test]
+    fn test_cell_data_clone() {
+        let cell = CellData::String("test".to_string());
+        let cloned = cell.clone();
+        assert!(matches!(cloned, CellData::String(s) if s == "test"));
+
+        let cell = CellData::Number(42.0);
+        let cloned = cell.clone();
+        assert!(matches!(cloned, CellData::Number(n) if n == 42.0));
+    }
+
+    #[test]
+    fn test_save_simple_workbook() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Test").unwrap();
+
+        let mut row = RowData::new();
+        row.add_string("Header");
+        row.add_number(100.0);
+        writer.add_row(row);
+
+        let mut buffer = Cursor::new(Vec::new());
+        assert!(writer.save(&mut buffer).is_ok());
+
+        // Verify something was written
+        let output = buffer.into_inner();
+        assert!(output.len() > 0);
+        // Should start with ZIP file signature
+        assert_eq!(&output[0..4], b"PK\x03\x04");
+    }
+
+    #[test]
+    fn test_save_workbook_with_formulas() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Formulas").unwrap();
+
+        let mut row = RowData::new();
+        row.add_number(10.0);
+        row.add_number(20.0);
+        row.add_formula("=A1+B1");
+        writer.add_row(row);
+
+        let mut buffer = Cursor::new(Vec::new());
+        assert!(writer.save(&mut buffer).is_ok());
+
+        let output = buffer.into_inner();
+        assert!(output.len() > 0);
+        // Verify it's a valid ZIP file
+        assert_eq!(&output[0..4], b"PK\x03\x04");
+    }
+
+    #[test]
+    fn test_save_workbook_with_freeze_header() {
+        let options = WriteOptions {
+            sheet_name: None,
+            style_header: false,
+            header_style: CellStyle::default(),
+            column_styles: None,
+            freeze_header: true,
+            auto_filter: false,
+            auto_fit: false,
+        };
+        let mut writer = XlsxWriter::with_options(options);
+        writer.add_sheet("Frozen").unwrap();
+
+        let mut row = RowData::new();
+        row.add_string("Header");
+        writer.add_row(row);
+
+        let mut row = RowData::new();
+        row.add_string("Data");
+        writer.add_row(row);
+
+        let mut buffer = Cursor::new(Vec::new());
+        assert!(writer.save(&mut buffer).is_ok());
+
+        let output = buffer.into_inner();
+        assert!(output.len() > 0);
+        // Verify it's a valid ZIP file
+        assert_eq!(&output[0..4], b"PK\x03\x04");
+    }
+
+    #[test]
+    fn test_save_workbook_with_auto_filter() {
+        let options = WriteOptions {
+            sheet_name: None,
+            style_header: false,
+            header_style: CellStyle::default(),
+            column_styles: None,
+            freeze_header: false,
+            auto_filter: true,
+            auto_fit: false,
+        };
+        let mut writer = XlsxWriter::with_options(options);
+        writer.add_sheet("Filtered").unwrap();
+
+        let mut row = RowData::new();
+        row.add_string("A");
+        row.add_string("B");
+        writer.add_row(row);
+
+        let mut row = RowData::new();
+        row.add_string("1");
+        row.add_string("2");
+        writer.add_row(row);
+
+        let mut buffer = Cursor::new(Vec::new());
+        assert!(writer.save(&mut buffer).is_ok());
+
+        let output = buffer.into_inner();
+        assert!(output.len() > 0);
+        // Verify it's a valid ZIP file
+        assert_eq!(&output[0..4], b"PK\x03\x04");
+    }
+
+    #[test]
+    fn test_empty_cells_handling() {
+        let mut writer = XlsxWriter::new();
+        writer.add_sheet("Empty").unwrap();
+
+        let mut row = RowData::new();
+        row.add_string("A");
+        row.add_empty();
+        row.add_string("C");
+        writer.add_row(row);
+
+        let mut buffer = Cursor::new(Vec::new());
+        assert!(writer.save(&mut buffer).is_ok());
+
+        let output = buffer.into_inner();
+        assert!(output.len() > 0);
+        // Verify it's a valid ZIP file
+        assert_eq!(&output[0..4], b"PK\x03\x04");
+
+        // Verify row was created with correct number of cells
+        assert_eq!(writer.sheets[0].rows[0].cells.len(), 3);
+        assert!(matches!(writer.sheets[0].rows[0].cells[0], CellData::String(_)));
+        assert!(matches!(writer.sheets[0].rows[0].cells[1], CellData::Empty));
+        assert!(matches!(writer.sheets[0].rows[0].cells[2], CellData::String(_)));
+    }
+}

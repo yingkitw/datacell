@@ -19,6 +19,7 @@ pub mod excel;
 pub mod format_detector;
 pub mod formula;
 pub mod geospatial;
+pub mod google_sheets;
 pub mod handler_registry;
 pub mod helpers;
 pub mod lineage;
@@ -30,7 +31,9 @@ pub mod plugins;
 pub mod profiling;
 pub mod profiling_handler;
 pub mod quality;
+pub mod regex_cache;
 pub mod streaming;
+pub mod string_utils;
 pub mod text_analysis;
 pub mod text_analysis_handler;
 pub mod timeseries;
@@ -57,6 +60,7 @@ pub use excel::{CellStyle, ChartConfig, DataChartType, ExcelHandler, WriteOption
 pub use format_detector::DefaultFormatDetector;
 pub use formula::{FormulaEvaluator, FormulaResult};
 pub use geospatial::{Coordinate, GeospatialCalculator};
+pub use google_sheets::GoogleSheetsHandler;
 pub use handler_registry::HandlerRegistry;
 pub use helpers::{
     default_column_names, filter_by_range, matches_extension, max_column_count,
@@ -74,6 +78,10 @@ pub use profiling::{ColumnProfile, DataProfile, DataProfiler};
 pub use quality::{IssueSeverity, QualityIssue, QualityReport, QualityReportGenerator};
 pub use streaming::{
     DataChunk, StreamingChannel, StreamingDataReader, StreamingDataWriter, StreamingProcessor,
+};
+pub use string_utils::{
+    join_cell_reference, join_with_capacity, string_with_capacity, StringBuilder,
+    estimate_csv_row_capacity, estimate_json_array_capacity,
 };
 pub use text_analysis::{KeywordResult, LanguageResult, SentimentResult, TextAnalyzer, TextStats};
 pub use timeseries::{

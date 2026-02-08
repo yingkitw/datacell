@@ -1,47 +1,17 @@
 use crate::csv_handler::CsvHandler;
 use crate::excel::ExcelHandler;
+use crate::format_detector::DefaultFormatDetector;
 use crate::handler_registry::HandlerRegistry;
 use crate::traits::{DataWriteOptions, FormatDetector};
 use anyhow::{Context, Result};
+use csv::ReaderBuilder;
+use std::io::Cursor;
 
 pub struct Converter {
     registry: HandlerRegistry,
     excel_handler: ExcelHandler,
     csv_handler: CsvHandler,
     format_detector: DefaultFormatDetector,
-}
-
-/// Default format detector for file operations
-struct DefaultFormatDetector;
-
-impl FormatDetector for DefaultFormatDetector {
-    fn detect_format(&self, path: &str) -> Result<String> {
-        let path_lower = path.to_lowercase();
-
-        if path_lower.ends_with(".xlsx") {
-            Ok("xlsx".to_string())
-        } else if path_lower.ends_with(".xls") {
-            Ok("xls".to_string())
-        } else if path_lower.ends_with(".ods") {
-            Ok("ods".to_string())
-        } else if path_lower.ends_with(".csv") {
-            Ok("csv".to_string())
-        } else if path_lower.ends_with(".parquet") {
-            Ok("parquet".to_string())
-        } else if path_lower.ends_with(".avro") {
-            Ok("avro".to_string())
-        } else {
-            anyhow::bail!("Unsupported file format: {}", path)
-        }
-    }
-
-    fn is_supported(&self, format: &str) -> bool {
-        matches!(format.to_lowercase().as_str(), "csv" | "xlsx" | "xls" | "ods" | "parquet" | "avro")
-    }
-
-    fn supported_formats(&self) -> Vec<String> {
-        vec!["csv".to_string(), "xlsx".to_string(), "xls".to_string(), "ods".to_string(), "parquet".to_string(), "avro".to_string()]
-    }
 }
 
 impl Converter {
@@ -159,9 +129,27 @@ impl Converter {
     }
 
     fn parse_csv_data(&self, data: &str) -> Vec<Vec<String>> {
-        data.lines()
-            .filter(|line| !line.is_empty())
-            .map(|line| line.split(',').map(|s| s.trim().to_string()).collect())
-            .collect()
+        let cursor = Cursor::new(data);
+        let mut reader = ReaderBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .from_reader(cursor);
+
+        let mut result = Vec::with_capacity(128); // Pre-allocate for performance
+
+        for record in reader.records() {
+            match record {
+                Ok(r) => {
+                    let row: Vec<String> = r.iter().map(|s| s.to_string()).collect();
+                    result.push(row);
+                }
+                Err(_) => {
+                    // Skip malformed rows
+                    continue;
+                }
+            }
+        }
+
+        result
     }
 }

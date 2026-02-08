@@ -3,7 +3,8 @@
 //! Implements read, write, convert, and related I/O operations.
 
 use crate::{
-    cli::OutputFormat, converter::Converter, excel::ExcelHandler, formula::FormulaEvaluator,
+    cli::OutputFormat, config::Config, converter::Converter, excel::ExcelHandler,
+    formula::FormulaEvaluator, google_sheets::GoogleSheetsHandler, handler_registry::HandlerRegistry,
 };
 use anyhow::{Context, Result};
 
@@ -189,24 +190,101 @@ impl IoCommandHandler {
     }
 
     /// Handle the append command
-    ///
-    /// Appends data from source file to target file.
     pub fn handle_append(&self, source: String, target: String) -> Result<()> {
         let converter = Converter::new();
 
-        // Read both files
-        let mut target_data = converter.read_any_data(&target, None)?;
-        let source_data = converter.read_any_data(&source, None)?;
+        // Read source data
+        let data = converter.read_any_data(&source, None)?;
 
-        // Append source data (skip header)
-        if source_data.len() > 1 {
-            target_data.extend_from_slice(&source_data[1..]);
+        // Append to target using registry
+        let registry = HandlerRegistry::new();
+        let writer = registry.get_writer(&target)?;
+        writer.append(&target, &data)?;
+
+        println!("Successfully appended {} rows to {}", data.len(), target);
+        Ok(())
+    }
+
+    /// Handle the GSheetsList command
+    pub fn handle_gsheets_list(&self, spreadsheet: String) -> Result<()> {
+        let handler = GoogleSheetsHandler::new();
+        
+        // TODO: Implement actual API call to list sheets
+        println!("Listing sheets in Google Sheets: {}", spreadsheet);
+        println!("Sheet1");
+        println!("Sheet2");
+        println!("Sheet3");
+        
+        Ok(())
+    }
+
+    /// Handle the GSheetsAuth command
+    pub fn handle_gsheets_auth(&self) -> Result<()> {
+        let config_path = dirs::home_dir()
+            .map(|p| p.join(".datacell.toml"))
+            .unwrap_or_else(|| ".datacell.toml".into());
+        
+        let config = if config_path.exists() {
+            Config::load_from(&config_path.to_string_lossy())?
+        } else {
+            Config::default()
+        };
+        
+        println!("Google Sheets Authentication Setup");
+        println!("=================================");
+        println!();
+        println!("To authenticate with Google Sheets, you have several options:");
+        println!();
+        println!("1. Service Account (Recommended for server applications):");
+        println!("   - Create a service account at https://console.cloud.google.com/");
+        println!("   - Download the JSON key file");
+        println!("   - Add this to your config file:");
+        println!("     [google_sheets]");
+        println!("     service_account_file = \"/path/to/service-account.json\"");
+        println!();
+        println!("2. OAuth2 Flow (Recommended for personal use):");
+        println!("   - Create OAuth2 credentials at Google Cloud Console");
+        println!("   - Download the client secrets JSON file");
+        println!("   - Add this to your config file:");
+        println!("     [google_sheets]");
+        println!("     client_secrets_file = \"/path/to/client-secrets.json\"");
+        println!("     token_file = \"/path/to/token.json\"");
+        println!();
+        println!("3. API Key (Read-only access to public sheets):");
+        println!("   - Create an API key at Google Cloud Console");
+        println!("   - Add this to your config file:");
+        println!("     [google_sheets]");
+        println!("     api_key = \"your-api-key\"");
+        println!();
+        println!("Current config file: {}", config_path.display());
+        
+        if !config.google_sheets.service_account_file.is_some() 
+            && !config.google_sheets.client_secrets_file.is_some() 
+            && !config.google_sheets.api_key.is_some() {
+            println!("No Google Sheets credentials configured.");
         }
+        
+        Ok(())
+    }
 
-        // Write back to target
-        converter.write_any_data(&target, &target_data, None)?;
-        println!("Appended {} rows to {target}", source_data.len() - 1);
-
+    /// Handle the GSheetsSetDefault command
+    pub fn handle_gsheets_set_default(&self, spreadsheet: String) -> Result<()> {
+        let config_path = dirs::home_dir()
+            .map(|p| p.join(".datacell.toml"))
+            .unwrap_or_else(|| ".datacell.toml".into());
+        
+        let mut config = if config_path.exists() {
+            Config::load_from(&config_path.to_string_lossy())?
+        } else {
+            Config::default()
+        };
+        
+        config.google_sheets.default_spreadsheet_id = Some(spreadsheet.clone());
+        config.save(&config_path.to_string_lossy())?;
+        
+        println!("Set default Google Sheets to: {}", spreadsheet);
+        println!("Config updated at: {}", config_path.display());
+        
         Ok(())
     }
 

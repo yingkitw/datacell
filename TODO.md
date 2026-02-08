@@ -1,5 +1,35 @@
 # datacell TODO
 
+## Recent Updates (Feb 7, 2026)
+
+- [x] **Custom XLSX Writer Implementation** - Removed rust_xlsxwriter dependency
+  - Implemented lightweight Excel XLSX writer using zip crate
+  - Creates XLSX files as ZIP archives containing XML files
+  - Supports multiple sheets, cell types, column widths, freeze headers, auto-filter
+  - Fixed FileOptions type annotations for zip crate v2.2 compatibility
+  - Fixed Seek trait requirements for ZipWriter
+- [x] **Comprehensive Test Coverage** - Added 24 new test cases for XLSX writer
+  - Sheet name validation (max 31 chars, invalid characters)
+  - Cell data types (String, Number, Formula, Empty)
+  - Column width configuration and expansion
+  - Multiple sheets support
+  - Row data operations (new, add_string, add_number, add_formula, add_empty, mixed)
+  - Column letter conversion (1→A, 26→Z, 27→AA, 702→ZZ, 703→AAA)
+  - XML character escaping (&, <, >, ", ')
+  - Workbook creation and saving (validates ZIP file format)
+  - Freeze headers option
+  - Auto-filter option
+  - Empty cells handling
+  - Cell data cloning
+- [x] **All 298 tests passing** (up from 274, +24 new XLSX writer tests)
+- [x] **Known Limitations Documented**
+  - Chart generation not yet implemented (returns clear error message)
+  - Sparklines are placeholder implementation
+  - Conditional formatting is placeholder implementation
+  - Advanced Excel features require additional XML markup
+- [x] Updated README.md with Excel support section and limitations
+- [x] Updated documentation to reflect custom writer implementation
+
 ## Recent Updates (Feb 3, 2026)
 
 - [x] **Parallel Processing Implementation** using Rayon
@@ -125,8 +155,8 @@
 - [x] Improve error handling with trait-based error types
 
 ## Future Enhancements
-- [x] Add sparklines support (using Excel formulas as workaround)
-- [x] Add conditional formatting (placeholder - requires workbook reading support)
+- [~] Add sparklines support (placeholder - requires custom XML implementation)
+- [~] Add conditional formatting (placeholder - requires conditional formatting XML)
 - [x] Data validation rules: `datacell validate --input data.csv --rules rules.json`
 - [x] Data profiling: `datacell profile --input data.csv --output profile.json`
 - [x] Time series operations: `datacell resample --input data.csv --interval daily --agg sum`
@@ -171,13 +201,27 @@
   - All helpers exported from lib.rs for use across codebase
 
 ### Medium Priority Improvements
+- [ ] **Chart generation** - Implement XML drawing markup for Excel charts
+  - Bar, column, line, pie charts
+  - Custom colors and legends
+  - Chart positioning and sizing
+- [ ] **Sparklines** - Implement sparkline XML for in-cell mini charts
+- [ ] **Conditional formatting** - Implement conditional formatting rules
+  - Color scales, data bars, icon sets
+  - Formula-based conditions
 - [ ] Add CSV delimiter injection protection (quoted newlines handling)
 - [ ] Remove remaining silent error suppression (search for `.ok()` calls)
 - [ ] Add streaming support for large file operations
 - [ ] Add integration tests for security improvements
 
 ## Recently Completed
-- [x] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`
+- [x] Custom XLSX writer implementation (Feb 7, 2026)
+  - Replaced rust_xlsxwriter dependency with lightweight custom implementation
+  - Uses zip crate to create XLSX files with XML content
+  - Supports core Excel features: sheets, cells, formulas, styling, column widths
+- [~] Chart/visualization: `datacell chart --input data.csv --output chart.xlsx -t column --title "Sales"`
+  - **Note**: Currently returns error - chart generation requires complex XML drawing markup
+  - Placeholder implementation in place, awaiting future implementation
 - [x] Config file support: `datacell config-init` creates `.datacell.toml`
 - [x] Cell styling for Excel: `datacell export-styled --input data.csv --output styled.xlsx`
 - [x] Improved error types with file/row/column context

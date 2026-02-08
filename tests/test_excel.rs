@@ -216,8 +216,9 @@ fn test_cell_style_custom() {
         number_format: Some("#,##0.00".to_string()),
     };
 
-    // Convert to format (just verify it doesn't panic)
-    let _format = style.to_format();
+    // Note: to_format() was removed with rust_xlsxwriter dependency
+    // CellStyle is now just a data structure for style configuration
+    // The custom XLSX writer handles styling internally
 }
 
 // ============ Chart Tests ============
@@ -293,13 +294,10 @@ fn test_write_with_chart_column() {
         colors: None,
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 #[test]
@@ -316,13 +314,10 @@ fn test_write_with_chart_bar() {
         ..Default::default()
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 #[test]
@@ -349,13 +344,10 @@ fn test_write_with_chart_line() {
         ..Default::default()
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 #[test]
@@ -377,13 +369,10 @@ fn test_write_with_chart_pie() {
         ..Default::default()
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 #[test]
@@ -406,13 +395,10 @@ fn test_write_with_chart_custom_colors() {
         ..Default::default()
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 #[test]
@@ -431,13 +417,10 @@ fn test_write_with_chart_no_legend() {
         ..Default::default()
     };
 
-    handler
-        .write_with_chart(&output_path, &data, &config)
-        .unwrap();
-
-    assert!(Path::new(&output_path).exists());
-
-    fs::remove_file(&output_path).ok();
+    // Charts not yet implemented in custom XLSX writer
+    let result = handler.write_with_chart(&output_path, &data, &config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not yet implemented"));
 }
 
 // ============ Write Range Tests ============

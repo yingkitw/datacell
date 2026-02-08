@@ -2,7 +2,9 @@
 
 use super::core::DataOperations;
 use super::types::SortOrder;
+use crate::regex_cache::where_clause_regex;
 use anyhow::Result;
+use rayon::prelude::*;
 
 struct QueryCondition {
     column: usize,
@@ -18,7 +20,8 @@ impl DataOperations {
         }
 
         let header = &data[0];
-        let mut result = vec![header.clone()];
+        let mut result = Vec::with_capacity(data.len());
+        result.push(header.clone());
 
         let conditions = self.parse_where_clause(where_clause, header)?;
 
@@ -33,10 +36,7 @@ impl DataOperations {
 
     fn parse_where_clause(&self, clause: &str, header: &[String]) -> Result<Vec<QueryCondition>> {
         let mut conditions = Vec::new();
-
-        let re_pattern = regex::Regex::new(
-            r#"(\w+)\s*(>=|<=|!=|<>|=|>|<|contains|starts_with|ends_with)\s*['"]?([^'"]+)['"]?"#,
-        )?;
+        let re_pattern = where_clause_regex();
 
         for cap in re_pattern.captures_iter(clause) {
             let col_name = cap.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -226,7 +226,8 @@ impl DataOperations {
 
         let header = data.remove(0);
 
-        data.sort_by(|a, b| {
+        // Use parallel sort for better performance on large datasets
+        data.par_sort_by(|a, b| {
             for (col, order) in columns {
                 let val_a = a.get(*col).map(|s| s.as_str()).unwrap_or("");
                 let val_b = b.get(*col).map(|s| s.as_str()).unwrap_or("");
@@ -306,7 +307,7 @@ impl DataOperations {
     /// Normalize column values (0-1 range)
     pub fn normalize(&self, data: &mut Vec<Vec<String>>, column: usize) -> Result<()> {
         let values: Vec<f64> = data
-            .iter()
+            .par_iter()
             .skip(1)
             .filter_map(|row| row.get(column))
             .filter_map(|s| s.parse::<f64>().ok())
@@ -316,8 +317,22 @@ impl DataOperations {
             return Ok(());
         }
 
-        let min_val = values.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        // Use parallel reduce for min/max calculation on large datasets
+        let (min_val, max_val) = if values.len() > 1000 {
+            let (min, max) = values.par_iter().fold(
+                || (f64::INFINITY, f64::NEG_INFINITY),
+                |(acc_min, acc_max), &val| (acc_min.min(val), acc_max.max(val)),
+            ).reduce(
+                || (f64::INFINITY, f64::NEG_INFINITY),
+                |(min1, max1), (min2, max2)| (min1.min(min2), max1.max(max2)),
+            );
+            (min, max)
+        } else {
+            let min_val = values.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            (min_val, max_val)
+        };
+
         let range = max_val - min_val;
 
         if range == 0.0 {
@@ -371,7 +386,8 @@ impl DataOperations {
     ) -> Result<Vec<Vec<String>>> {
         let re = regex::Regex::new(pattern)?;
 
-        let mut result = vec![data[0].clone()];
+        let mut result = Vec::with_capacity(data.len());
+        result.push(data[0].clone());
 
         for row in data.iter().skip(1) {
             if let Some(cell) = row.get(column) {

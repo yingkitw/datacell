@@ -4,6 +4,7 @@ use crate::columnar::{AvroHandler, ParquetHandler};
 use crate::csv_handler::CsvHandler;
 use crate::excel::ExcelHandler;
 use crate::format_detector::DefaultFormatDetector;
+use crate::google_sheets::GoogleSheetsHandler;
 use crate::traits::FormatDetector;
 use crate::traits::{DataReader, DataWriteOptions, DataWriter, FileHandler};
 use anyhow::Result;
@@ -29,6 +30,7 @@ impl HandlerRegistry {
             "xlsx" | "xls" | "ods" => Ok(Box::new(ExcelHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
+            "gsheet" => Ok(Box::new(GoogleSheetsHandler::new())),
             _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }
@@ -42,6 +44,7 @@ impl HandlerRegistry {
             "xlsx" | "xls" | "ods" => Ok(Box::new(ExcelHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
+            "gsheet" => Ok(Box::new(GoogleSheetsHandler::new())),
             _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }
@@ -54,6 +57,7 @@ impl HandlerRegistry {
             "csv" => Ok(Box::new(CsvHandler::new())),
             "parquet" => Ok(Box::new(ParquetHandler::new())),
             "avro" => Ok(Box::new(AvroHandler::new())),
+            "gsheet" => Ok(Box::new(GoogleSheetsHandler::new())),
             _ => anyhow::bail!("Unsupported format: {format}"),
         }
     }

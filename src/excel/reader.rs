@@ -1,15 +1,98 @@
 use anyhow::{Context, Result};
 use calamine::{open_workbook, Ods, Reader, Xlsx};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 use crate::csv_handler::CellRange;
 use crate::traits::DataReader;
 
+/// Excel metadata cache entry
+#[derive(Debug, Clone)]
+struct ExcelMetadata {
+    sheet_names: Vec<String>,
+    modified_time: Option<std::time::SystemTime>,
+}
+
+/// Thread-safe metadata cache for Excel files
+struct ExcelMetadataCache {
+    cache: Arc<RwLock<HashMap<String, ExcelMetadata>>>,
+}
+
+impl ExcelMetadataCache {
+    fn new() -> Self {
+        Self {
+            cache: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    fn get(&self, path: &str) -> Option<ExcelMetadata> {
+        let cache = self.cache.read().ok()?;
+        if let Some(metadata) = cache.get(path) {
+            // Check if file is still valid
+            if let Ok(current_modified) = std::fs::metadata(path).and_then(|m| m.modified()) {
+                if let Some(cached_modified) = metadata.modified_time {
+                    if current_modified == cached_modified {
+                        return Some(metadata.clone());
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn insert(&self, path: String, metadata: ExcelMetadata) {
+        if let Ok(mut cache) = self.cache.write() {
+            // Simple cache eviction: remove oldest entries if cache gets too large
+            if cache.len() > 100 {
+                cache.clear();
+            }
+            cache.insert(path, metadata);
+        }
+    }
+
+    fn invalidate(&self, path: &str) {
+        if let Ok(mut cache) = self.cache.write() {
+            cache.remove(path);
+        }
+    }
+}
+
 /// Excel file handler
-pub struct ExcelHandler;
+pub struct ExcelHandler {
+    metadata_cache: ExcelMetadataCache,
+}
 
 impl ExcelHandler {
     pub fn new() -> Self {
-        Self
+        Self {
+            metadata_cache: ExcelMetadataCache::new(),
+        }
+    }
+
+    /// Get or load Excel metadata with caching
+    fn get_metadata(&self, path: &str) -> Result<ExcelMetadata> {
+        // Check cache first
+        if let Some(metadata) = self.metadata_cache.get(path) {
+            return Ok(metadata);
+        }
+
+        // Load from file
+        let workbook: Xlsx<_> =
+            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
+
+        let modified_time = std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .ok();
+
+        let metadata = ExcelMetadata {
+            sheet_names: workbook.sheet_names().to_vec(),
+            modified_time,
+        };
+
+        // Cache the metadata
+        self.metadata_cache.insert(path.to_string(), metadata.clone());
+
+        Ok(metadata)
     }
 
     pub fn read(&self, path: &str) -> Result<String> {
@@ -20,16 +103,17 @@ impl ExcelHandler {
         let mut workbook: Xlsx<_> =
             open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
-        let sheet_names = workbook.sheet_names();
+        let metadata = self.get_metadata(path)?;
         let sheet_name = sheet_name
-            .or_else(|| sheet_names.first().map(|s| s.as_str()))
+            .or_else(|| metadata.sheet_names.first().map(|s| s.as_str()))
             .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
 
         let range = workbook
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
 
-        let mut output = String::new();
+        // Pre-allocate string capacity based on estimated size
+        let mut output = String::with_capacity(range.height() * range.width() * 10);
         for row in range.rows() {
             let row_str: Vec<String> = row.iter().map(|cell| cell.to_string()).collect();
             output.push_str(&row_str.join(","));
@@ -77,16 +161,19 @@ impl ExcelHandler {
         let mut workbook: Xlsx<_> =
             open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
-        let sheet_names = workbook.sheet_names();
+        let metadata = self.get_metadata(path)?;
         let sheet_name = sheet_name
-            .or_else(|| sheet_names.first().map(|s| s.as_str()))
+            .or_else(|| metadata.sheet_names.first().map(|s| s.as_str()))
             .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
 
         let ws_range = workbook
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
 
-        let mut result = Vec::new();
+        let estimated_rows = range.end_row.saturating_sub(range.start_row) + 1;
+        let estimated_cols = range.end_col.saturating_sub(range.start_col) + 1;
+        let mut result = Vec::with_capacity(estimated_rows.min(1024));
+
         for (row_idx, row) in ws_range.rows().enumerate() {
             if row_idx < range.start_row {
                 continue;
@@ -95,12 +182,12 @@ impl ExcelHandler {
                 break;
             }
 
-            let row_data: Vec<String> = row
-                .iter()
-                .enumerate()
-                .filter(|(col_idx, _)| *col_idx >= range.start_col && *col_idx <= range.end_col)
-                .map(|(_, cell)| cell.to_string())
-                .collect();
+            let mut row_data = Vec::with_capacity(estimated_cols);
+            for (col_idx, cell) in row.iter().enumerate() {
+                if col_idx >= range.start_col && col_idx <= range.end_col {
+                    row_data.push(cell.to_string());
+                }
+            }
             result.push(row_data);
         }
 
@@ -112,28 +199,31 @@ impl ExcelHandler {
         let mut workbook: Xlsx<_> =
             open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
-        let sheet_names = workbook.sheet_names();
+        let metadata = self.get_metadata(path)?;
         let sheet_name = sheet_name
-            .or_else(|| sheet_names.first().map(|s| s.as_str()))
+            .or_else(|| metadata.sheet_names.first().map(|s| s.as_str()))
             .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
 
         let range = workbook
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {}", sheet_name))?;
 
-        let mut rows: Vec<Vec<String>> = Vec::new();
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(range.height());
         for row in range.rows() {
-            rows.push(row.iter().map(|cell| cell.to_string()).collect());
+            let mut row_data = Vec::with_capacity(range.width());
+            for cell in row.iter() {
+                row_data.push(cell.to_string());
+            }
+            rows.push(row_data);
         }
 
         serde_json::to_string_pretty(&rows).with_context(|| "Failed to serialize to JSON")
     }
 
-    /// Get list of sheet names in workbook
+    /// Get list of sheet names in workbook (cached)
     pub fn list_sheets(&self, path: &str) -> Result<Vec<String>> {
-        let workbook: Xlsx<_> =
-            open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
-        Ok(workbook.sheet_names().to_vec())
+        let metadata = self.get_metadata(path)?;
+        Ok(metadata.sheet_names)
     }
 
     /// Read all sheets at once, returns map of sheet_name -> data
@@ -270,8 +360,9 @@ impl DataReader for ExcelHandler {
         let mut workbook: Xlsx<_> =
             open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
-        let sheet_names = workbook.sheet_names();
-        let sheet_name = sheet_names
+        let metadata = self.get_metadata(path)?;
+        let sheet_name = metadata
+            .sheet_names
             .first()
             .map(|s| s.as_str())
             .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
@@ -280,7 +371,10 @@ impl DataReader for ExcelHandler {
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {sheet_name}"))?;
 
-        let mut result = Vec::new();
+        let estimated_rows = range.end_row.saturating_sub(range.start_row) + 1;
+        let estimated_cols = range.end_col.saturating_sub(range.start_col) + 1;
+        let mut result = Vec::with_capacity(estimated_rows.min(1024));
+
         for (row_idx, row) in ws_range.rows().enumerate() {
             if row_idx < range.start_row {
                 continue;
@@ -289,12 +383,12 @@ impl DataReader for ExcelHandler {
                 break;
             }
 
-            let row_data: Vec<String> = row
-                .iter()
-                .enumerate()
-                .filter(|(col_idx, _)| *col_idx >= range.start_col && *col_idx <= range.end_col)
-                .map(|(_, cell)| cell.to_string())
-                .collect();
+            let mut row_data = Vec::with_capacity(estimated_cols);
+            for (col_idx, cell) in row.iter().enumerate() {
+                if col_idx >= range.start_col && col_idx <= range.end_col {
+                    row_data.push(cell.to_string());
+                }
+            }
             result.push(row_data);
         }
 
@@ -305,8 +399,9 @@ impl DataReader for ExcelHandler {
         let mut workbook: Xlsx<_> =
             open_workbook(path).with_context(|| format!("Failed to open Excel file: {path}"))?;
 
-        let sheet_names = workbook.sheet_names();
-        let sheet_name = sheet_names
+        let metadata = self.get_metadata(path)?;
+        let sheet_name = metadata
+            .sheet_names
             .first()
             .map(|s| s.as_str())
             .ok_or_else(|| anyhow::anyhow!("No sheets found in workbook"))?;
@@ -315,9 +410,13 @@ impl DataReader for ExcelHandler {
             .worksheet_range(sheet_name)
             .with_context(|| format!("Failed to read sheet: {sheet_name}"))?;
 
-        let mut rows: Vec<Vec<String>> = Vec::new();
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(range.height());
         for row in range.rows() {
-            rows.push(row.iter().map(|cell| cell.to_string()).collect());
+            let mut row_data = Vec::with_capacity(range.width());
+            for cell in row.iter() {
+                row_data.push(cell.to_string());
+            }
+            rows.push(row_data);
         }
 
         serde_json::to_string_pretty(&rows).with_context(|| "Failed to serialize to JSON")

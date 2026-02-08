@@ -1,5 +1,4 @@
 use anyhow::Result;
-use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder};
 
 /// Cell style configuration
 #[derive(Debug, Clone, Default)]
@@ -34,49 +33,8 @@ impl CellStyle {
         }
     }
 
-    pub fn to_format(&self) -> Format {
-        let mut format = Format::new();
-
-        if self.bold {
-            format = format.set_bold();
-        }
-        if self.italic {
-            format = format.set_italic();
-        }
-        if let Some(ref color) = self.bg_color {
-            if let Ok(c) = Self::parse_hex_color(color) {
-                format = format.set_background_color(c);
-            }
-        }
-        if let Some(ref color) = self.font_color {
-            if let Ok(c) = Self::parse_hex_color(color) {
-                format = format.set_font_color(c);
-            }
-        }
-        if let Some(size) = self.font_size {
-            format = format.set_font_size(size);
-        }
-        if self.border {
-            format = format
-                .set_border(FormatBorder::Thin)
-                .set_border_color(Color::Black);
-        }
-        if let Some(ref align) = self.align {
-            format = match align.to_lowercase().as_str() {
-                "center" => format.set_align(FormatAlign::Center),
-                "right" => format.set_align(FormatAlign::Right),
-                "left" => format.set_align(FormatAlign::Left),
-                _ => format,
-            };
-        }
-        if let Some(ref num_fmt) = self.number_format {
-            format = format.set_num_format(num_fmt);
-        }
-
-        format
-    }
-
-    pub(crate) fn parse_hex_color(hex: &str) -> Result<Color> {
+    /// Parse hex color string to RGB color
+    pub fn parse_hex_color(hex: &str) -> Result<u32> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
             anyhow::bail!("Invalid hex color: {}", hex);
@@ -84,7 +42,7 @@ impl CellStyle {
         let r = u8::from_str_radix(&hex[0..2], 16)?;
         let g = u8::from_str_radix(&hex[2..4], 16)?;
         let b = u8::from_str_radix(&hex[4..6], 16)?;
-        Ok(Color::RGB(r as u32 * 0x10000 + g as u32 * 0x100 + b as u32))
+        Ok(r as u32 * 0x10000 + g as u32 * 0x100 + b as u32)
     }
 }
 

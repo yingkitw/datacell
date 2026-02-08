@@ -28,6 +28,10 @@ pub struct Config {
     /// CSV options
     #[serde(default)]
     pub csv: CsvConfig,
+
+    /// Google Sheets API options
+    #[serde(default)]
+    pub google_sheets: GoogleSheetsConfig,
 }
 
 /// Excel-specific configuration
@@ -72,6 +76,41 @@ pub struct CsvConfig {
     /// Has header row
     #[serde(default)]
     pub has_header: Option<bool>,
+}
+
+/// Google Sheets API configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GoogleSheetsConfig {
+    /// Path to service account JSON file
+    #[serde(default)]
+    pub service_account_file: Option<String>,
+
+    /// Path to client secrets JSON file (for OAuth flow)
+    #[serde(default)]
+    pub client_secrets_file: Option<String>,
+
+    /// Path to token storage file
+    #[serde(default)]
+    pub token_file: Option<String>,
+
+    /// Default spreadsheet ID (can be overridden in commands)
+    #[serde(default)]
+    pub default_spreadsheet_id: Option<String>,
+
+    /// API key for simple access (read-only public sheets)
+    #[serde(default)]
+    pub api_key: Option<String>,
+
+    /// OAuth scopes
+    #[serde(default = "default_scopes")]
+    pub scopes: Vec<String>,
+}
+
+fn default_scopes() -> Vec<String> {
+    vec![
+        "https://www.googleapis.com/auth/spreadsheets".to_string(),
+        "https://www.googleapis.com/auth/drive.readonly".to_string(),
+    ]
 }
 
 impl Config {
@@ -159,6 +198,22 @@ quote = "\""
 
 # Has header row
 has_header = true
+
+[google_sheets]
+# Path to service account JSON file (for server-to-server auth)
+# service_account_file = "/path/to/service-account.json"
+
+# Path to client secrets JSON file (for OAuth flow)
+# client_secrets_file = "/path/to/client-secrets.json"
+
+# Path to token storage file (for OAuth flow)
+# token_file = "/path/to/token.json"
+
+# Default spreadsheet ID (can be overridden in commands)
+# default_spreadsheet_id = "your-spreadsheet-id"
+
+# API key for read-only access to public sheets
+# api_key = "your-api-key"
 "#
     }
 }

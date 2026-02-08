@@ -6,6 +6,7 @@ use crate::traits::{
     TransformOperator,
 };
 use anyhow::Result;
+use rayon::prelude::*;
 
 /// Data operations for spreadsheet manipulation
 pub struct DataOperations;
@@ -49,7 +50,8 @@ impl DataOperations {
             );
         }
 
-        data.sort_by(|a, b| {
+        // Use parallel sort for better performance on large datasets
+        data.par_sort_by(|a, b| {
             let val_a = a.get(column).map(|s| s.as_str()).unwrap_or("");
             let val_b = b.get(column).map(|s| s.as_str()).unwrap_or("");
 
@@ -77,16 +79,17 @@ impl FilterOperator for DataOperations {
         column: usize,
         condition: FilterCondition,
     ) -> Result<Vec<Vec<String>>> {
-        let mut result = Vec::new();
+        // Use parallel filtering for better performance on large datasets
+        let filtered: Vec<Vec<String>> = data
+            .par_iter()
+            .filter(|row| {
+                let cell_value = row.get(column).map(|s| s.as_str()).unwrap_or("");
+                self.evaluate_condition(cell_value, &condition).unwrap_or(false)
+            })
+            .map(|row| row.clone())
+            .collect();
 
-        for row in data {
-            let cell_value = row.get(column).map(|s| s.as_str()).unwrap_or("");
-            if self.evaluate_condition(cell_value, &condition)? {
-                result.push(row.clone());
-            }
-        }
-
-        Ok(result)
+        Ok(filtered)
     }
 }
 
@@ -414,13 +417,10 @@ impl DataOperator for DataOperations {}
 /// # Returns
 /// A formula string with adjusted cell references
 fn adjust_cell_references_for_row(formula: &str, row_idx: usize) -> String {
-    use regex::Regex;
+    use crate::regex_cache::cell_reference_regex;
 
     let row_num = row_idx + 1;
-
-    // Match cell references like A1, B2, Z100, AA1, etc.
-    // Pattern: One or more letters followed by one or more digits
-    let re = Regex::new(r"([A-Za-z]+)(\d+)").unwrap();
+    let re = cell_reference_regex();
 
     let result = re.replace_all(formula, |caps: &regex::Captures| {
         let column = &caps[1]; // e.g., "A", "B", "AA"

@@ -133,7 +133,9 @@ impl CsvHandler {
             .from_path(path)
             .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
-        let mut result = Vec::new();
+        let estimated_rows = range.end_row.saturating_sub(range.start_row) + 1;
+        let estimated_cols = range.end_col.saturating_sub(range.start_col) + 1;
+        let mut result = Vec::with_capacity(estimated_rows.min(1024));
 
         for (row_idx, record) in reader.records().enumerate() {
             if row_idx < range.start_row {
@@ -144,12 +146,14 @@ impl CsvHandler {
             }
 
             let record = record?;
-            let row: Vec<String> = record
-                .iter()
-                .enumerate()
-                .filter(|(col_idx, _)| *col_idx >= range.start_col && *col_idx <= range.end_col)
-                .map(|(_, val)| val.to_string())
-                .collect();
+            // Pre-allocate with estimated capacity to reduce reallocations
+            let mut row = Vec::with_capacity(estimated_cols);
+            for (col_idx, val) in record.iter().enumerate() {
+                if col_idx >= range.start_col && col_idx <= range.end_col {
+                    // Use Cow::from to avoid allocation when possible
+                    row.push(String::from(val));
+                }
+            }
             result.push(row);
         }
 
@@ -164,10 +168,15 @@ impl CsvHandler {
             .from_path(path)
             .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
-        let mut rows: Vec<Vec<String>> = Vec::new();
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(1024);
         for record in reader.records() {
             let record = record?;
-            rows.push(record.iter().map(|s| s.to_string()).collect());
+            // Pre-allocate based on record length
+            let mut row = Vec::with_capacity(record.len());
+            for val in record.iter() {
+                row.push(String::from(val));
+            }
+            rows.push(row);
         }
 
         serde_json::to_string_pretty(&rows).with_context(|| "Failed to serialize to JSON")
@@ -215,7 +224,7 @@ impl CsvHandler {
                 .map(|r| r.iter().map(|s| s.to_string()).collect())
                 .collect()
         } else {
-            Vec::new()
+            Vec::with_capacity(start_row + data.len())
         };
 
         // Expand existing data if needed
@@ -276,7 +285,12 @@ impl Iterator for StreamingCsvReader {
         match self.reader.records().next() {
             Some(Ok(record)) => {
                 self.current_row += 1;
-                Some(Ok(record.iter().map(|s| s.to_string()).collect()))
+                // Pre-allocate capacity to avoid reallocations
+                let mut row = Vec::with_capacity(record.len());
+                for val in record.iter() {
+                    row.push(String::from(val));
+                }
+                Some(Ok(row))
             }
             Some(Err(e)) => Some(Err(anyhow::anyhow!("CSV read error: {}", e))),
             None => None,
@@ -338,10 +352,15 @@ impl DataReader for CsvHandler {
             .from_path(path)
             .with_context(|| format!("Failed to open CSV file: {path}"))?;
 
-        let mut rows = Vec::new();
+        // Pre-allocate with capacity hint for better performance
+        let mut rows = Vec::with_capacity(1024);
         for record in reader.records() {
             let record = record?;
-            rows.push(record.iter().map(|s| s.to_string()).collect());
+            let mut row = Vec::with_capacity(record.len());
+            for val in record.iter() {
+                row.push(String::from(val));
+            }
+            rows.push(row);
         }
         Ok(rows)
     }

@@ -280,6 +280,7 @@ This provides better type safety and performance compared to string-only operati
 | ODS    | ✅   | ❌    | OpenDocument Spreadsheet (read-only) |
 | Parquet| ✅   | ✅    | Via `arrow`/`parquet` crates |
 | Avro   | ✅   | ✅    | Via `apache-avro` crate |
+| Google Sheets | ✅ | ✅ | Placeholder implementation (requires API setup) |
 
 ## Dependencies Notes
 

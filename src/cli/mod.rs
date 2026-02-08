@@ -555,6 +555,21 @@ pub enum Commands {
         #[arg(short, long)]
         style: Option<String>,
     },
+
+    /// List sheets in Google Sheets
+    GSheetsList {
+        #[arg(short, long)]
+        spreadsheet: String,
+    },
+
+    /// Authorize Google Sheets access
+    GSheetsAuth,
+
+    /// Set default Google Sheets spreadsheet
+    GSheetsSetDefault {
+        #[arg(short, long)]
+        spreadsheet: String,
+    },
 }
 
 /// Execute a CLI command

@@ -286,6 +286,13 @@ impl super::commands::CommandHandler for DefaultCommandHandler {
                 style,
             } => self.advanced.handle_export_styled(input, output, style),
 
+            // Google Sheets commands
+            Commands::GSheetsList { spreadsheet } => self.io.handle_gsheets_list(spreadsheet),
+            Commands::GSheetsAuth => self.io.handle_gsheets_auth(),
+            Commands::GSheetsSetDefault { spreadsheet } => {
+                self.io.handle_gsheets_set_default(spreadsheet)
+            }
+
             // Additional transform commands that were in the original cli.rs
             Commands::Clip {
                 input,
