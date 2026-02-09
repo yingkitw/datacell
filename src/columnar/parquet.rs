@@ -4,9 +4,8 @@ use anyhow::{Context, Result};
 use std::fs::File;
 use std::sync::Arc;
 
-use arrow::array::{ArrayRef, BooleanArray, Float64Array, Int64Array, StringArray};
-use arrow::datatypes::{DataType, Field, Schema};
-use arrow::record_batch::RecordBatch;
+use arrow_array::{ArrayRef, BooleanArray, Float64Array, Int64Array, RecordBatch, StringArray};
+use arrow_schema::{DataType, Field, Schema};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::arrow::ArrowWriter;
 use parquet::file::properties::WriterProperties;
@@ -166,7 +165,7 @@ impl ParquetHandler {
                 .unwrap_or_else(|| format!("{:?}", array)),
             DataType::LargeUtf8 => array
                 .as_any()
-                .downcast_ref::<arrow::array::LargeStringArray>()
+                .downcast_ref::<arrow_array::LargeStringArray>()
                 .map(|arr| arr.value(idx).to_string())
                 .unwrap_or_else(|| format!("{:?}", array)),
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
